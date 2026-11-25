@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องทดลอง — จำลองทั้งระบบ FlowLens</title>
+<meta name="description" content="จำลองวันทำการเต็มของห้องแล็บตรวจเลือดทั้ง 8 หน่วย เห็นคิวเกิดขึ้นทีละคน พร้อมเทียบผลจากทฤษฎีกับผลจากการจำลองแบบสด">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<style>
+  .simwrap { background: var(--bg-sunken); border: 1px solid var(--line);
+             border-radius: var(--radius-s); overflow-x: auto; }
+  #stage { display: block; }
+  .clock { font-family: var(--mono); font-size: 1.5rem; font-weight: 600;
+           font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .ulist { display: grid; gap: 6px; }
+  .urow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+          padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+          background: var(--bg-elev); font-size: .85rem; }
+  .urow.hot { border-color: var(--bad); background: var(--bad-soft); }
+  .urow .nm { font-weight: 550; }
+  .urow .mt { font-family: var(--mono); font-size: .8rem; color: var(--ink-soft);
+              font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body data-page="sim/network.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">ห้องทดลอง</p>
+  <h1>จำลองทั้งระบบ</h1>
+  <p class="lede">
+    ห้องแล็บทั้ง 8 หน่วยเดินพร้อมกันหนึ่งวันทำการเต็ม ผู้ป่วยทุกจุดคือคนจริงหนึ่งคน
+    ปรับอะไรก็ได้แล้วดูผลทันที — และเทียบว่าสูตรจากบทที่ 5 ทำนายตรงกับที่เกิดขึ้นจริงแค่ไหน
+  </p>
+</div>
+
+<div class="lab" style="margin-top:0">
+  <header>
+    <span class="clock" id="clock">06:00</span>
+    <span class="pill" id="statusPill">พร้อมเริ่ม</span>
+    <span class="hint" id="progress"></span>
+  </header>
+  <div class="body">
+    <div class="btnrow">
+      <button class="btn primary" id="btnPlay">▶ เริ่ม</button>
+      <button class="btn" id="btnStep">ก้าวทีละ 15 นาที</button>
+      <button class="btn" id="btnFast">ข้ามไปจบวัน</button>
+      <button class="btn" id="btnReset">เริ่มใหม่</button>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <label for="spd" style="font-size:.85rem;color:var(--ink-soft)">ความเร็ว</label>
+        <input type="range" id="spd" min="10" max="400" step="10" value="90" style="width:120px">
+        <span class="val" id="spdV" style="font-family:var(--mono);font-size:.82rem"></span>
+      </span>
+    </div>
+
+    <div class="simwrap"><canvas id="stage" width="1000" height="430"></canvas></div>
+
+    <div class="lab-split" style="margin-top:18px">
+      <div>
+        <div class="grid g3" style="margin:0 0 14px">
+          <div class="ctrl" style="margin:0">
+            <label for="cPhleb"><span>โต๊ะเจาะเลือด (พีค)</span><span class="val" id="cPhlebV"></span></label>
+            <input type="range" id="cPhleb" min="4" max="16" step="1" value="7">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="openT"><span>เวลาเปิดบริการ</span><span class="val" id="openTV"></span></label>
+            <input type="range" id="openT" min="330" max="420" step="15" value="390">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="cVerify"><span>ทวนสอบผล เริ่มกะ</span><span class="val" id="cVerifyV"></span></label>
+            <input type="range" id="cVerify" min="390" max="540" step="30" value="480">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="rwN"><span>อัตราเจาะซ้ำ</span><span class="val" id="rwNV"></span></label>
+            <input type="range" id="rwN" min="0" max="0.2" step="0.01" value="0">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="demN"><span>ปริมาณผู้ป่วย</span><span class="val" id="demNV"></span></label>
+            <input type="range" id="demN" min="0.5" max="1.8" step="0.05" value="1">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="cvN"><span>ความผันแปรเวลาบริการ</span><span class="val" id="cvNV"></span></label>
+            <input type="range" id="cvN" min="0.3" max="3" step="0.1" value="1">
+            <div class="sub">ตัวคูณของ cs² ที่วัดได้จริง</div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn" data-p="real">ของจริง (7 โต๊ะ)</button>
+          <button class="btn" data-p="config">ตาม config (11)</button>
+          <button class="btn" data-p="early">เปิดเร็ว 06:00</button>
+          <button class="btn" data-p="stress">วันคนล้น +40%</button>
+        </div>
+        <div id="verdict"></div>
+      </div>
+      <div>
+        <div class="boxtitle">สถานะรายหน่วย</div>
+        <div class="ulist" id="ulist"></div>
+        <div class="boxtitle" style="margin-top:16px">ทั้งระบบ</div>
+        <div class="stats" style="margin:0;grid-template-columns:repeat(2,1fr)">
+          <div class="stat"><div class="k">เสร็จแล้ว</div><div class="v" id="kDone">0</div></div>
+          <div class="stat"><div class="k">อยู่ในระบบ</div><div class="v" id="kIn">0</div></div>
+          <div class="stat"><div class="k">TAT เฉลี่ย</div><div class="v" id="kTat">—</div></div>
+          <div class="stat"><div class="k">TAT p90</div><div class="v" id="kP90">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="compare">ทฤษฎีเทียบของจริง</h2>
+
+<p>
+  ตารางนี้เทียบเวลารอที่<strong>สูตร Sakasegawa ทำนาย</strong> (จาก λ, E[S], c, ca², cs² ของช่วงพีค)
+  กับเวลารอที่<strong>เกิดขึ้นจริงในการจำลอง</strong> รันจนจบวันก่อนแล้วค่อยดู
+</p>
+
+<div class="tablewrap">
+  <table id="cmp">
+    <thead><tr><th>หน่วย</th><th class="num">ρ ที่วัดได้</th>
+      <th class="num">Wq สูตร</th><th class="num">Wq จำลอง</th>
+      <th class="num">p90 สูตร</th><th class="num">p90 จำลอง</th>
+      <th>อ่านผล</th></tr></thead>
+    <tbody><tr><td colspan="7" style="color:var(--ink-faint)">รันให้จบวันก่อน แล้วตารางนี้จะมีข้อมูล</td></tr></tbody>
+  </table>
+</div>
+
+<div class="note">
+  <p class="boxtitle">สิ่งที่ควรสังเกต</p>
+  <ul style="margin-bottom:0">
+    <li>หน่วยที่ <strong>ρ &lt; 0.8</strong> — สูตรมักตรงกับการจำลองในระดับไม่กี่เปอร์เซ็นต์</li>
+    <li>หน่วยที่ <strong>ρ ใกล้ 1</strong> — สูตรเริ่มเพี้ยน เพราะ λ ไม่ได้คงที่จริงและมีคิวค้างข้ามช่วง</li>
+    <li>หน่วยที่ <strong>ρ ≥ 1</strong> — สูตรให้ ∞ ส่วนการจำลองให้ตัวเลขจำกัด
+      เพราะในความเป็นจริงคนหยุดมาตอนบ่าย คิวจึงระบายได้ในที่สุด
+      <strong>นี่คือเหตุผลทั้งหมดที่ต้องมีการจำลอง</strong></li>
+    <li>ลองเร่ง "ความผันแปรเวลาบริการ" ขึ้นเป็น 3 เท่า แล้วดูว่าเวลารอพุ่งแค่ไหนโดยที่ ρ ไม่เปลี่ยนเลย</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------- layout */
+  var NODE = {
+    REG:       { x: 100, y: 150, w: 104, h: 54 },
+    PHLEB:     { x: 244, y: 150, w: 104, h: 54 },
+    TRANSPORT: { x: 388, y: 150, w: 92,  h: 54 },
+    RECEIVE:   { x: 520, y: 150, w: 104, h: 54 },
+    CHEM:      { x: 664, y: 80,  w: 104, h: 54 },
+    HEMA:      { x: 664, y: 220, w: 104, h: 54 },
+    VERIFY:    { x: 808, y: 150, w: 96,  h: 54 },
+    RESULT:    { x: 930, y: 150, w: 56,  h: 54 },
+  };
+  var EDGE = [['REG','PHLEB'],['PHLEB','TRANSPORT'],['TRANSPORT','RECEIVE'],
+              ['RECEIVE','CHEM'],['RECEIVE','HEMA'],['CHEM','VERIFY'],
+              ['HEMA','VERIFY'],['VERIFY','RESULT']];
+
+  var cv = document.getElementById('stage');
+  var ctx = cv.getContext('2d');
+  var css = getComputedStyle(document.documentElement);
+  function C(name) { return css.getPropertyValue(name).trim() || '#888'; }
+  function refreshColors() { css = getComputedStyle(document.documentElement); }
+
+  /* ---------------------------------------------------------- sim */
+  var sim = null, playing = false, lastFrame = 0, done = false;
+  var cfg = {};
+
+  function readCfg() {
+    cfg = {
+      cPhleb: Site.v('cPhleb'),
+      openT: Site.v('openT'),
+      verifyFrom: Site.v('cVerify'),
+      rework: Site.v('rwN'),
+      demand: Site.v('demN'),
+      cvMul: Site.v('cvN'),
+    };
+    Site.show('cPhleb', cfg.cPhleb + ' โต๊ะ');
+    Site.show('openT', Q.fmt.clock(cfg.openT));
+    Site.show('cVerify', Q.fmt.clock(cfg.verifyFrom));
+    Site.show('rwN', (cfg.rework * 100).toFixed(0) + '%');
+    Site.show('demN', (cfg.demand * 100).toFixed(0) + '%');
+    Site.show('cvN', cfg.cvMul.toFixed(1) + '×');
+    Site.show('spd', Site.v('spd') + ' นาที/วินาที');
+  }
+
+  function build() {
+    readCfg();
+    var stations = FL.units.map(function (u) {
+      var base = {
+        id: u.id, name: u.short, serviceMean: u.serviceMean,
+        scv: Math.max(u.truth.serviceCv * u.truth.serviceCv * cfg.cvMul, 0.01),
+      };
+      if (u.type === 'transport') { base.infinite = true; return base; }
+      base.serversAt = function (t) {
+        if (t < cfg.openT) return 0;
+        if (u.id === 'PHLEB') return (t >= cfg.openT && t < 540) ? cfg.cPhleb : u.serversBase;
+        if (u.id === 'VERIFY') return (t >= cfg.verifyFrom && t < 720) ? 6 : u.serversBase;
+        if (u.id === 'REG') return (t >= cfg.openT && t < 540) ? 9 : u.serversBase;
+        for (var i = 0; i < (u.schedule || []).length; i++) {
+          var s = u.schedule[i];
+          if (t >= s.from && t < s.to) return s.servers;
+        }
+        return u.serversBase;
+      };
+      return base;
+    });
+
+    var routes = FL.routes.slice();
+    if (cfg.rework > 0) routes.push({ from: 'PHLEB', to: 'PHLEB', p: cfg.rework });
+
+    sim = new DES.Sim({
+      stations: stations, routes: routes,
+      arrivalRate: function (t) { return FL.arrivalRate(t) * cfg.demand; },
+      lamMax: 2.82 * Math.max(cfg.demand, 1),
+      tStart: 355, tEnd: FL.project.openTo + 150, seed: 20261125,
+      downtime: [{ unit: 'CHEM', at: 360, minutes: 20 }],
+    });
+    done = false;
+    draw(); panel();
+    document.querySelector('#cmp tbody').innerHTML =
+      '<tr><td colspan="7" style="color:var(--ink-faint)">รันให้จบวันก่อน แล้วตารางนี้จะมีข้อมูล</td></tr>';
+  }
+
+  /* ---------------------------------------------------------- draw */
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function draw() {
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = C('--bg-sunken'); ctx.fillRect(0, 0, W, H);
+    if (!sim) return;
+    var snap = {}, t = sim.t;
+    sim.snapshot().forEach(function (s) { snap[s.id] = s; });
+
+    /* edges */
+    ctx.strokeStyle = C('--line'); ctx.lineWidth = 1.5;
+    EDGE.forEach(function (e) {
+      var A = NODE[e[0]], B = NODE[e[1]];
+      var x1 = A.x + A.w, y1 = A.y + A.h / 2, x2 = B.x, y2 = B.y + B.h / 2;
+      ctx.beginPath(); ctx.moveTo(x1, y1);
+      if (Math.abs(y1 - y2) < 2) ctx.lineTo(x2, y2);
+      else ctx.bezierCurveTo((x1 + x2) / 2, y1, (x1 + x2) / 2, y2, x2, y2);
+      ctx.stroke();
+      /* หัวลูกศร */
+      ctx.fillStyle = C('--ink-faint');
+      ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - 7, y2 - 3.5);
+      ctx.lineTo(x2 - 7, y2 + 3.5); ctx.closePath(); ctx.fill();
+    });
+
+    /* ประตูเข้า */
+    ctx.fillStyle = C('--ink-faint'); ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('ผู้ป่วยมาถึง', 46, 173);
+    ctx.beginPath(); ctx.moveTo(72, 177); ctx.lineTo(NODE.REG.x, 177); ctx.stroke();
+
+    FL.order.forEach(function (id) {
+      var N = NODE[id], u = FL.byId[id], s = snap[id];
+      if (!N || !s) return;
+      var rho = s.rho;
+      var hot = Number.isFinite(rho) && rho >= 0.98;
+      var warm = Number.isFinite(rho) && rho > 0.85;
+      var fill = hot ? C('--bad-soft') : warm ? C('--warn-soft')
+        : (Number.isFinite(rho) && rho > 0.6) ? C('--bg-elev') : C('--ok-soft');
+      var stroke = hot ? C('--bad') : warm ? C('--warn') : C('--line');
+
+      roundRect(N.x, N.y, N.w, N.h, 10);
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = stroke; ctx.lineWidth = hot ? 2.2 : 1.3; ctx.stroke();
+
+      ctx.fillStyle = C('--ink'); ctx.font = '600 12px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(u.short, N.x + N.w / 2, N.y + 17);
+
+      /* ช่องโต๊ะ */
+      var cNum = Number.isFinite(s.servers) ? s.servers : 0;
+      var shown = Math.min(cNum, 11);
+      var slotW = 7, gap = 2.6;
+      var totalW = shown * slotW + (shown - 1) * gap;
+      var sx = N.x + N.w / 2 - totalW / 2, sy = N.y + 26;
+      for (var i = 0; i < shown; i++) {
+        var busy = i < s.busy;
+        ctx.fillStyle = busy ? (hot ? C('--bad') : C('--s1')) : C('--bg-sunken');
+        ctx.strokeStyle = C('--line'); ctx.lineWidth = 1;
+        roundRect(sx + i * (slotW + gap), sy, slotW, 11, 2);
+        ctx.fill(); ctx.stroke();
+      }
+      if (cNum > 11) {
+        ctx.fillStyle = C('--ink-faint'); ctx.font = '9px var(--mono), monospace';
+        ctx.fillText('+' + (cNum - 11), N.x + N.w / 2, N.y + 48);
+      }
+      if (u.type === 'transport') {
+        ctx.fillStyle = C('--ink-faint'); ctx.font = '10px system-ui';
+        ctx.fillText(s.busy + ' กำลังเดินทาง', N.x + N.w / 2, N.y + 36);
+      }
+
+      /* ρ */
+      ctx.fillStyle = hot ? C('--bad') : C('--ink-soft');
+      ctx.font = '600 10px var(--mono), monospace';
+      ctx.fillText(Number.isFinite(rho) ? 'ρ ' + rho.toFixed(2) : '', N.x + N.w / 2, N.y - 6);
+
+      /* คิว = จุด */
+      var q = s.queue;
+      if (q > 0) {
+        var cols = 14, r = 2.9, dx = 7.2, dy = 7.2;
+        var n = Math.min(q, 70);
+        ctx.fillStyle = q > 40 ? C('--bad') : q > 12 ? C('--warn') : C('--s2');
+        for (var k = 0; k < n; k++) {
+          var cxp = N.x + 5 + (k % cols) * dx;
+          var cyp = N.y + N.h + 9 + Math.floor(k / cols) * dy;
+          ctx.beginPath(); ctx.arc(cxp, cyp, r, 0, 6.2832); ctx.fill();
+        }
+        ctx.fillStyle = C('--ink-soft'); ctx.font = '600 10px var(--mono), monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(q + ' รอ', N.x + 2, N.y + N.h + 4);
+        ctx.textAlign = 'center';
+      }
+    });
+
+    /* ป้ายขั้นตอน */
+    ctx.fillStyle = C('--ink-faint'); ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('ก่อนวิเคราะห์', 300, 420);
+    ctx.fillText('วิเคราะห์', 716, 420);
+    ctx.fillText('หลังวิเคราะห์', 870, 420);
+  }
+
+  /* ---------------------------------------------------------- panel */
+  function panel() {
+    if (!sim) return;
+    document.getElementById('clock').textContent = Q.fmt.clock(sim.t);
+    var s = sim.summary();
+    document.getElementById('kDone').textContent = Q.fmt.i(s.done);
+    document.getElementById('kIn').textContent = Q.fmt.i(s.inSystem);
+    document.getElementById('kTat').innerHTML = s.tat.n
+      ? s.tat.mean.toFixed(1) + '<span class="u">น.</span>' : '—';
+    document.getElementById('kP90').innerHTML = s.tat.n
+      ? s.tat.p90.toFixed(1) + '<span class="u">น.</span>' : '—';
+
+    var html = '';
+    s.units.forEach(function (u) {
+      var hot = Number.isFinite(u.rho) && u.rho >= 0.95;
+      html += '<div class="urow' + (hot ? ' hot' : '') + '">' +
+        '<div><div class="nm">' + u.name + '</div>' +
+        '<div class="mt">รอ ' + u.inQueue + ' · ทำอยู่ ' + u.inService +
+        ' · รอเฉลี่ย ' + u.waitMean.toFixed(1) + ' น.</div></div>' +
+        '<div class="mt" style="text-align:right">' +
+        (Number.isFinite(u.rho) ? 'ρ ' + u.rho.toFixed(2) : '—') + '</div></div>';
+    });
+    document.getElementById('ulist').innerHTML = html;
+
+    var pct = Math.min(((sim.t - 355) / (sim.tEnd - 355)) * 100, 100);
+    document.getElementById('progress').textContent =
+      'เดินไปแล้ว ' + pct.toFixed(0) + '% ของวัน · ρ ที่แสดงคือค่าสะสมตั้งแต่เปิดจนถึงเวลานี้';
+  }
+
+  /* ---------------------------------------------------------- compare */
+  function compare() {
+    if (!sim) return;
+    var s = sim.summary();
+    var peak = 7 * 60 + 30;
+    var lams = FL.unitLambdaAt(peak, cfg.rework);
+    var html = '';
+    s.units.forEach(function (su) {
+      var u = FL.byId[su.unit];
+      if (u.type === 'transport') return;
+      var lam = (lams[u.id] || 0) * cfg.demand;
+      var c = u.id === 'PHLEB' ? cfg.cPhleb
+        : u.id === 'VERIFY' ? (peak >= cfg.verifyFrom ? 6 : u.serversBase)
+        : u.id === 'REG' ? 9 : FL.serversAt(u, peak);
+      var cs2 = u.truth.serviceCv * u.truth.serviceCv * cfg.cvMul;
+      var wq = Q.wqGGc(lam, u.serviceMean, c, 1, cs2);
+      var p90 = Q.wqPercentile(lam, u.serviceMean, c, 0.9, 1, cs2);
+      var rhoTheory = (lam * u.serviceMean) / c;
+      var note = rhoTheory >= 1
+        ? '<span class="pill bad">สูตรให้ ∞ — การจำลองยังตอบได้</span>'
+        : rhoTheory > 0.9 ? '<span class="pill warn">ใกล้เพดาน สูตรเริ่มเพี้ยน</span>'
+        : (su.waitMean > 0 && Number.isFinite(wq) && Math.abs(wq - su.waitMean) / Math.max(su.waitMean, .01) < 0.5)
+          ? '<span class="pill ok">สูตรใกล้เคียง</span>'
+          : '<span class="pill">ต่างกัน ดูช่วงเวลา</span>';
+      html += '<tr class="' + (rhoTheory >= 1 ? 'is-flag' : '') + '">' +
+        '<th>' + u.short + '</th>' +
+        '<td class="num">' + (Number.isFinite(su.rho) ? su.rho.toFixed(2) : '—') + '</td>' +
+        '<td class="num">' + (Number.isFinite(wq) ? wq.toFixed(1) : '∞') + '</td>' +
+        '<td class="num"><strong>' + su.waitMean.toFixed(1) + '</strong></td>' +
+        '<td class="num">' + (Number.isFinite(p90) ? p90.toFixed(1) : '∞') + '</td>' +
+        '<td class="num"><strong>' + su.waitP90.toFixed(1) + '</strong></td>' +
+        '<td>' + note + '</td></tr>';
+    });
+    document.querySelector('#cmp tbody').innerHTML = html;
+
+    var ph = s.units.filter(function (x) { return x.unit === 'PHLEB'; })[0];
+    document.getElementById('verdict').innerHTML =
+      '<div class="' + (s.tat.p90 > 80 ? 'warnbox' : 'tip') + '" style="margin:14px 0 0">' +
+      '<strong>จบวันแล้ว</strong> — ผู้ป่วย ' + Q.fmt.i(s.done) + ' ราย · ' +
+      'TAT เฉลี่ย ' + s.tat.mean.toFixed(1) + ' นาที · <strong>TAT p90 = ' +
+      s.tat.p90.toFixed(1) + ' นาที</strong><br>' +
+      'เวลารอที่จุดเจาะเลือด ' + (ph ? ph.waitMean.toFixed(1) : '—') + ' นาที ' +
+      '(p90 = ' + (ph ? ph.waitP90.toFixed(1) : '—') + ' นาที) · คิวยาวสุด ' +
+      (ph ? ph.qMax : '—') + ' คน</div>';
+  }
+
+  /* ---------------------------------------------------------- loop */
+  function tick(ts) {
+    if (!playing) return;
+    var dt = lastFrame ? Math.min((ts - lastFrame) / 1000, 0.1) : 0;
+    lastFrame = ts;
+    var simMin = dt * Site.v('spd');             // นาทีจำลองต่อวินาทีจริง
+    sim.runUntil(sim.t + simMin);
+    draw(); panel();
+    if (sim.t >= sim.tEnd) { stop(); finish(); return; }
+    requestAnimationFrame(tick);
+  }
+  function start() {
+    if (done) { build(); }
+    playing = true; lastFrame = 0;
+    document.getElementById('btnPlay').textContent = '⏸ หยุด';
+    document.getElementById('statusPill').textContent = 'กำลังเดิน';
+    document.getElementById('statusPill').className = 'pill acc';
+    requestAnimationFrame(tick);
+  }
+  function stop() {
+    playing = false;
+    document.getElementById('btnPlay').textContent = '▶ เริ่ม';
+    document.getElementById('statusPill').textContent = 'หยุดชั่วคราว';
+    document.getElementById('statusPill').className = 'pill';
+  }
+  function finish() {
+    done = true;
+    document.getElementById('statusPill').textContent = 'จบวันแล้ว';
+    document.getElementById('statusPill').className = 'pill ok';
+    compare();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function () {
+    if (playing) stop(); else start();
+  });
+  document.getElementById('btnStep').addEventListener('click', function () {
+    stop(); sim.runUntil(sim.t + 15); draw(); panel();
+    if (sim.t >= sim.tEnd) finish();
+  });
+  document.getElementById('btnFast').addEventListener('click', function () {
+    stop(); sim.runAll(); draw(); panel(); finish();
+  });
+  document.getElementById('btnReset').addEventListener('click', function () {
+    stop(); build();
+    document.getElementById('statusPill').textContent = 'พร้อมเริ่ม';
+    document.getElementById('statusPill').className = 'pill';
+    document.getElementById('verdict').innerHTML = '';
+  });
+
+  var PRESET = {
+    real:   { cPhleb: 7,  openT: 390, cVerify: 480, rwN: 0,    demN: 1 },
+    config: { cPhleb: 11, openT: 390, cVerify: 480, rwN: 0,    demN: 1 },
+    early:  { cPhleb: 9,  openT: 360, cVerify: 420, rwN: 0,    demN: 1 },
+    stress: { cPhleb: 7,  openT: 390, cVerify: 480, rwN: 0.08, demN: 1.4 },
+  };
+  document.querySelectorAll('[data-p]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var p = PRESET[b.dataset.p];
+      for (var k in p) document.getElementById(k).value = p[k];
+      stop(); build();
+      document.getElementById('verdict').innerHTML = '';
+      document.getElementById('statusPill').textContent = 'พร้อมเริ่ม';
+      document.getElementById('statusPill').className = 'pill';
+    });
+  });
+
+  Site.bind(['cPhleb', 'openT', 'cVerify', 'rwN', 'demN', 'cvN'], function () {
+    stop(); build();
+  });
+  document.getElementById('spd').addEventListener('input', function () {
+    Site.show('spd', Site.v('spd') + ' นาที/วินาที');
+  });
+  Site.show('spd', Site.v('spd') + ' นาที/วินาที');
+
+  document.addEventListener('themechange', function () { refreshColors(); draw(); });
+  build();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 6 — เครือข่ายคิว สมดุลการไหล และงานทำซ้ำ</title>
+<meta name="description" content="Jackson network, สมการสมดุลการไหล, ผลของงานทำซ้ำ, การแตกตัวของความผันแปรระหว่างหน่วย และกำลังของทั้งระบบ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/06-network.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 6</p>
+  <h1>เครือข่ายคิว</h1>
+  <p class="lede">
+    ระบบจริงไม่เคยมีคิวเดียว งานไหลจากหน่วยหนึ่งไปอีกหน่วย แยกทาง วนกลับ
+    บทนี้ว่าด้วยการต่อคิวหลาย ๆ ตัวเข้าด้วยกัน และสิ่งที่เกิดขึ้นเมื่อทำแบบนั้น
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="net">1. ระบบจริงหน้าตาแบบนี้</h2>
+
+<figure class="wide">
+  <div id="netmap"></div>
+  <figcaption>
+    เครือข่ายเปิด (open network) — งานเข้าจากภายนอกที่จุดลงทะเบียน
+    ผ่านหลายหน่วย แยกทางที่จุดรับสิ่งส่งตรวจ แล้วออกจากระบบ
+    เส้นประส้มคือทางวนกลับเมื่อต้องเจาะซ้ำ
+  </figcaption>
+</figure>
+
+<p>
+  คำถามแรกที่ต้องตอบก่อนคำนวณอะไรทั้งสิ้นคือ
+  <strong>"แต่ละหน่วยได้รับงานเท่าไรกันแน่"</strong>
+  คำตอบไม่ใช่ "เท่ากับจำนวนผู้ป่วยที่มา" เสมอไป
+</p>
+
+<h2 id="balance">2. สมการสมดุลการไหล</h2>
+
+<div class="formula">
+  $$\lambda_j \;=\; \lambda_{0j} \;+\; \sum_{i} \lambda_i\, p_{ij}$$
+  <div class="caption">
+    งานที่หน่วย j ได้รับ = งานที่เข้าจากภายนอก + ผลรวมของงานที่ส่งมาจากหน่วยอื่น
+    โดย <span class="katex-nowrap">$p_{ij}$</span> คือสัดส่วนที่หน่วย i ส่งไปยัง j
+  </div>
+</div>
+
+<p>
+  สำหรับเครือข่ายแบบเส้นตรงไม่มีวงวน แก้ได้ด้วยการไล่ไปข้างหน้าทีละหน่วย
+  แต่ถ้ามีวงวน (เจาะซ้ำ) ต้องแก้เป็นระบบสมการ —
+  ซึ่งในโค้ดของเว็บนี้ใช้การวนซ้ำจนลู่เข้า (<code>Q.solveFlow</code>)
+</p>
+
+<div class="example">
+  <header>ตัวอย่างที่ 6.1 — กระจายงานตามเส้นทางจริง</header>
+  <div class="body">
+    <div class="calc">λ ที่ประตู (ช่วงพีค) = 1.732 ราย/นาที
+
+REG       = 1.732                      <span class="cm">(ทุกคนต้องลงทะเบียน)</span>
+PHLEB     = 1.732                      <span class="cm">(ทุกคนต้องเจาะ)</span>
+TRANSPORT = 1.732
+RECEIVE   = 1.732
+CHEM      = 1.732 × 0.62 = <span class="hl">1.074</span>   <span class="cm">(62% เป็นงานเคมีคลินิก)</span>
+HEMA      = 1.732 × 0.38 = <span class="hl">0.658</span>   <span class="cm">(38% เป็นงานโลหิตวิทยา)</span>
+VERIFY    = 1.074 + 0.658 = 1.732      <span class="cm">(สองสายมารวมกันอีกครั้ง)</span>
+RESULT    = 1.732</div>
+    <p style="margin-bottom:0">
+      ค่า 0.62 / 0.38 ไม่ได้เดาเอา — <code>config.yaml</code> ระบุไว้
+      และตรวจกับข้อมูลได้ว่า CHEM มี 5,175 เหตุการณ์ จาก 8,329 ราย
+      = 62.1% ตรงพอดี
+    </p>
+  </div>
+</div>
+
+<h3>งานทำซ้ำ — ตัวคูณที่คนมักลืม</h3>
+
+<p>
+  ถ้าหน่วยหนึ่งมีโอกาส r ที่งานต้องวนกลับมาทำใหม่
+  งานที่หน่วยนั้นต้องทำจริงไม่ใช่ λ แต่เป็น
+</p>
+
+<div class="formula">
+  $$\lambda_{\text{eff}} \;=\; \lambda\,(1 + r + r^{2} + \dots) \;=\; \frac{\lambda}{1-r}$$
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th class="num">อัตราเจาะซ้ำ r</th><th class="num">ตัวคูณงาน</th>
+    <th class="num">λ ที่แท้จริง</th><th class="num">ρ ที่ 11 โต๊ะ</th><th>ผล</th></tr></thead>
+  <tbody id="reworkTab"></tbody>
+</table>
+<caption>เกณฑ์ของ FlowLens: <code>rework_threshold = 0.03</code> —
+  เกิน 3% จะถูกติดป้ายสาเหตุ "งานทำซ้ำ" และเสนอให้ทำ DMAIC</caption>
+</div>
+
+<div class="warnbox">
+  <p style="margin-bottom:0">
+    อัตราเจาะซ้ำเพียง <strong>8%</strong> กินกำลังเท่ากับการสูญเสียโต๊ะไปเกือบหนึ่งตัว
+    และราคาที่แท้จริงสูงกว่านั้น เพราะงานทำซ้ำมักเกิดกับ<strong>เคสที่ยากอยู่แล้ว</strong>
+    ซึ่งใช้เวลานานกว่าค่าเฉลี่ย — มันจึงเพิ่มทั้ง λ และ cs² พร้อมกัน
+  </p>
+</div>
+
+<h2 id="capacity">3. กำลังของทั้งระบบ — ใครคือเพดานตัวจริง</h2>
+
+<p>
+  หน่วยที่ปลายน้ำได้รับงานน้อยกว่า จึง "ต้องการกำลังน้อยกว่า" ตามสัดส่วน
+  การเทียบกำลังดิบระหว่างหน่วยจึงไม่มีความหมาย ต้องเทียบ
+  <strong>กำลังที่แปลงกลับเป็นหน่วย "ผู้ป่วยต่อชั่วโมงที่ทั้งระบบรับได้"</strong>
+</p>
+
+<div class="formula">
+  $$\text{กำลังระบบ} \;=\; \min_{j}\;\frac{\text{capacity}_j}{\text{สัดส่วนงานที่ไหลผ่าน } j}
+  \qquad \text{capacity}_j = \frac{60\,c_j}{E[S]_j}$$
+</div>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 6.1 — หาเพดานของทั้งระบบ</span>
+    <span class="hint">ลองเพิ่มโต๊ะที่คอขวด แล้วดูว่าคอขวดย้ายไปไหน</span>
+  </header>
+  <div class="body">
+    <div class="ctrl" style="max-width:420px">
+      <label for="dem"><span>ความต้องการช่วงพีค</span><span class="val" id="demV"></span></label>
+      <input type="range" id="dem" min="40" max="220" step="2" value="104">
+      <div class="sub">ค่าเฉลี่ยช่วง 06:30–09:00 = 104 ราย/ชม. · ครึ่งชั่วโมงแรก = 169 ราย/ชม.</div>
+    </div>
+    <div class="ctrl" style="max-width:420px">
+      <label for="rw"><span>อัตราเจาะซ้ำ</span><span class="val" id="rwV"></span></label>
+      <input type="range" id="rw" min="0" max="0.2" step="0.01" value="0">
+    </div>
+    <div id="capSliders" class="grid g3" style="margin:16px 0"></div>
+    <div id="capVerdict"></div>
+    <div class="tablewrap">
+      <table id="capTab">
+        <thead><tr>
+          <th>หน่วย</th><th class="num">c</th><th class="num">E[S]</th>
+          <th class="num">กำลัง<br><small>ราย/ชม.</small></th>
+          <th class="num">สัดส่วนงาน</th>
+          <th class="num">รับทั้งระบบได้<br><small>ราย/ชม.</small></th>
+          <th class="num">ρ</th><th>สถานะ</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="warnbox">
+  <p class="boxtitle">อ่านผลข้างบนให้ถูก — มุมมองกำลังล้วนกับข้อมูลจริงไม่ตรงกันเสียทีเดียว</p>
+  <p>
+    ที่ค่าตั้งต้น ตารางชี้ว่าเพดานอยู่ที่ <strong>หน่วยทวนสอบผล 90 ราย/ชม.</strong>
+    ซึ่ง "แย่กว่า" จุดเจาะเลือดที่ 100 ราย/ชม. แต่ข้อมูลจริงกลับบอกว่า
+    จุดเจาะเลือดมี ρ = 1.00 ส่วนหน่วยทวนสอบมี ρ = 0.96 — ทำไมจึงต่างกัน
+  </p>
+  <p style="margin-bottom:0">
+    เพราะการคำนวณนี้สมมติว่า<strong>งานไปถึงทุกหน่วยพร้อมกัน</strong>
+    ความจริงคือ งานที่หน่วยทวนสอบได้รับตอน 07:30 คืองานของคนที่ลงทะเบียนตั้งแต่ 06:50
+    — มันถูก<strong>หน่วงและรีดให้เรียบ</strong>โดยเวลาขนส่งและเวลาวิเคราะห์ 8–15 นาทีมาแล้ว
+    ภาระจริงจึงกระจายตัวกว่าที่สมการสมดุลแบบสถานะคงตัวทำนาย
+    <br>บทเรียน: มุมมองกำลังล้วนใช้ <strong>คัดกรองผู้ต้องสงสัย</strong> ได้ดี
+    แต่ต้องยืนยันด้วยข้อมูลจริงหรือการจำลองเสมอ ซึ่งเป็นสิ่งที่ FlowLens ทำ
+    — และนี่คือเหตุผลที่หน่วยทวนสอบผลยัง<strong>ติดอันดับต้น ๆ</strong>
+    ของคะแนนคอขวดใน <a href="07-bottleneck.html">บทที่ 7</a> แม้เวลารอที่วัดได้จะมีแค่ 6.5 นาที
+  </p>
+</div>
+
+<h2 id="jackson">4. เครือข่าย Jackson — เมื่อไรที่แยกคำนวณทีละหน่วยได้</h2>
+
+<p>
+  คำถามสำคัญ: เราคำนวณแต่ละหน่วยแยกกันด้วยสูตร M/M/c แล้วเอาผลมารวมกันได้ไหม
+  คำตอบคือ <strong>ได้ ถ้าเข้าเงื่อนไขของ Jackson</strong>
+</p>
+
+<div class="note">
+  <p class="boxtitle">ทฤษฎีบท Jackson (open network)</p>
+  <p>ถ้าเครือข่ายมีคุณสมบัติครบทุกข้อนี้</p>
+  <ul>
+    <li>งานเข้าจากภายนอกเป็น Poisson</li>
+    <li>ทุกหน่วยมีเวลาบริการเป็น exponential</li>
+    <li>ทุกหน่วยมีคิวไม่จำกัด FIFO</li>
+    <li>การส่งต่อเป็นแบบสุ่มตามความน่าจะเป็นคงที่</li>
+  </ul>
+  <p style="margin-bottom:0">
+    แล้วระบบจะมี <strong>product form solution</strong> — แต่ละหน่วยทำตัว<em>ราวกับ</em>
+    เป็น M/M/c อิสระที่รับ λ<sub>j</sub> จากสมการสมดุล และความน่าจะเป็นรวมเป็นผลคูณของแต่ละหน่วย
+  </p>
+</div>
+
+<p>
+  กุญแจที่ทำให้เรื่องนี้เป็นจริงคือ <strong>ทฤษฎีบทของ Burke</strong>:
+  งานที่<em>ออก</em>จากคิว M/M/c ที่นิ่งแล้ว เป็นกระบวนการ Poisson ที่อัตราเดิม
+  ดังนั้นหน่วยถัดไปจึงเห็น input เป็น Poisson เหมือนกัน — สมมติฐานไม่พัง
+</p>
+
+<h3>แต่ของจริงไม่เข้าเงื่อนไข</h3>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>เงื่อนไข Jackson</th><th>กรณีศึกษาจริง</th></tr></thead>
+  <tbody>
+    <tr class="is-flag"><th>เวลาบริการ exponential</th>
+      <td>lognormal, cs² = 0.06–0.25 — ห่างจาก 1 มาก</td></tr>
+    <tr class="is-flag"><th>λ คงที่</th><td>λ เปลี่ยน 20 เท่าระหว่างวัน</td></tr>
+    <tr class="is-flag"><th>ไม่มีการบล็อก</th><td>มีได้ เมื่อหน่วยถัดไปรับไม่ทัน</td></tr>
+    <tr><th>ส่งต่อแบบสุ่มคงที่</th><td>ใกล้เคียง (62/38 ตามชนิดการตรวจ)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>วิธีที่ใช้จริง: decomposition + ติดตามความผันแปร</h3>
+
+<p>
+  แนวทางปฏิบัติ (เรียกว่า QNA — Queueing Network Analyzer ของ Whitt)
+  คือยังแยกคำนวณทีละหน่วย แต่<strong>ส่งต่อค่า ca² ไปยังหน่วยถัดไปด้วย</strong>
+  ไม่ใช่สมมติว่าเป็น 1 ทุกหน่วย สมการเชื่อมคือ
+</p>
+
+<div class="formula">
+  $$c_d^{2} \;\approx\; \rho^{2}\,c_s^{2}\;+\;(1-\rho^{2})\,c_a^{2}$$
+  <div class="caption">
+    <span class="katex-nowrap">$c_d^2$</span> คือความผันแปรของงาน<strong>ขาออก</strong>
+    ซึ่งกลายเป็น <span class="katex-nowrap">$c_a^2$</span> ของหน่วยถัดไป
+  </div>
+</div>
+
+<p>สมการนี้อ่านได้เป็นภาษาคนว่า:</p>
+
+<div class="cards">
+  <div class="card">
+    <p class="boxtitle">ρ สูง (หน่วยยุ่งตลอด)</p>
+    <p style="margin-bottom:0">งานขาออกถูกกำหนดจังหวะโดย<strong>เวลาบริการ</strong>
+      → <span class="katex-nowrap">$c_d^2 \to c_s^2$</span>
+      หน่วยที่คิวยาวตลอดจะ "กรองความผันแปรของการมาถึง" ออกไป
+      และปล่อยงานออกเป็นจังหวะสม่ำเสมอ</p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">ρ ต่ำ (หน่วยว่างบ่อย)</p>
+    <p style="margin-bottom:0">งานผ่านไปเฉย ๆ แทบไม่รอ
+      → <span class="katex-nowrap">$c_d^2 \to c_a^2$</span>
+      ความผันแปรของขาเข้าถูกส่งต่อไปยังหน่วยถัดไปเต็ม ๆ</p>
+  </div>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 6.2 — คอขวดทำให้ปลายน้ำสงบลง</header>
+  <div class="body">
+    <p>
+      จุดเจาะเลือดที่ ρ ≈ 1.0 ทำหน้าที่เหมือน "เขื่อน" —
+      ไม่ว่าผู้ป่วยจะหลั่งไหลเข้ามาแบบไหน งานที่ออกจากจุดเจาะจะออกมาทีละราย
+      ทุก ๆ 4.2/7 = 0.6 นาที อย่างสม่ำเสมอ
+    </p>
+    <div class="calc">ที่ PHLEB: ρ = 1.0, cs² = 0.20, ca² = 1.5 (คนมาเป็นกลุ่ม)
+cd² ≈ 1.0² × 0.20 + (1 − 1.0²) × 1.5 = <span class="hl">0.20</span>
+
+หน่วยถัดไป (TRANSPORT → RECEIVE) จึงเห็น ca² = 0.20 ไม่ใช่ 1.5</div>
+    <p style="margin-bottom:0">
+      นี่อธิบายข้อมูลจริงได้พอดี: RECEIVE, CHEM, HEMA, VERIFY ล้วนมีเวลารอ
+      <strong>น้อยกว่า 2 นาที</strong> ทั้งที่ ρ ของบางหน่วยสูงถึง 0.81
+      เพราะงานที่ไหลมาถึงพวกเขาถูก "รีดให้เรียบ" โดยคอขวดข้างหน้าแล้ว
+      <br><strong>ผลพลอยได้ที่ต้องระวัง:</strong> ถ้าแก้คอขวดที่จุดเจาะ
+      งานจะไหลไปถึงปลายน้ำเป็นกลุ่มอีกครั้ง — ปลายน้ำอาจเกิดคิวที่ไม่เคยมี
+    </p>
+  </div>
+</div>
+
+<h2 id="move">5. คอขวดย้ายที่ได้</h2>
+
+<p>
+  นี่คือผลลัพธ์เชิงปฏิบัติที่สำคัญที่สุดของบทนี้
+  เมื่อแก้คอขวดอันดับหนึ่งสำเร็จ กำลังของทั้งระบบจะถูกจำกัดโดยอันดับสองทันที
+  และบ่อยครั้งที่ผลลัพธ์รวม<strong>ดีขึ้นน้อยกว่าที่คาดไว้มาก</strong>
+</p>
+
+<figure>
+  <div id="moveChart"></div>
+  <figcaption>
+    เพดานของทั้งระบบเมื่อค่อย ๆ เพิ่มโต๊ะที่จุดเจาะเลือด —
+    เพิ่มจาก 7 เป็น 11 โต๊ะได้ผลเต็ม ๆ แต่เพิ่มต่อจากนั้นแทบไม่ได้อะไร
+    เพราะเพดานย้ายไปอยู่ที่หน่วยอื่นแล้ว
+  </figcaption>
+</figure>
+<div id="moveLegend"></div>
+
+<div class="tip">
+  <p class="boxtitle">วิธีที่ FlowLens จัดการเรื่องนี้</p>
+  <p style="margin-bottom:0">
+    ระบบไม่คำนวณผลของข้อเสนอแต่ละข้อแยกกันแล้วเอามาบวกกัน
+    แต่<strong>รันการจำลองทั้งระบบใหม่ทุกครั้ง</strong> สำหรับทุกชุดข้อเสนอ
+    (โมดูล <code>recommend/simulate.py</code> และ <code>simulation/scenarios.py</code>)
+    จึงรายงานได้ว่า "ทำข้อ 1 ได้ 18 นาที, ทำข้อ 1+2 ได้ 24 นาที ไม่ใช่ 32 นาที"
+    — เรียกว่า <strong>ผลสะสม (cumulative effect)</strong>
+  </p>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 6</h4>
+  <ul>
+    <li>ต้องแก้<strong>สมดุลการไหล</strong>ก่อนเสมอ เพื่อรู้ว่าแต่ละหน่วยได้รับงานเท่าไรจริง ๆ</li>
+    <li>งานทำซ้ำคูณภาระด้วย <strong>1/(1−r)</strong> — เจาะซ้ำ 8% กินกำลังเกือบหนึ่งโต๊ะ</li>
+    <li>เพดานของระบบ = <strong>ค่าต่ำสุด</strong>ของ (กำลังหน่วย ÷ สัดส่วนงานที่ไหลผ่าน)</li>
+    <li>Jackson network ให้คำนวณแยกหน่วยได้ แต่เงื่อนไขไม่ตรงกับของจริง —
+      ใช้ decomposition พร้อมส่งต่อ ca² แทน</li>
+    <li><strong>คอขวดกรองความผันแปร</strong> ปลายน้ำจึงดูสงบ และอาจวุ่นขึ้นหลังแก้คอขวด</li>
+    <li><strong>คอขวดย้ายที่</strong> — ต้องประเมินผลสะสมด้วยการจำลองทั้งระบบ ไม่ใช่บวกผลทีละข้อ</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/flowmap.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var PEAK_T = 7 * 60 + 30;   // 07:30 ใช้เป็นเวลาอ้างอิงช่วงพีค
+  var SERVICE = FL.units.filter(function (u) { return u.type !== 'transport'; });
+
+  /* ---------- ผังเครือข่าย ---------- */
+  function netmap() {
+    var sub = {};
+    FL.units.forEach(function (u) {
+      sub[u.id] = u.type === 'transport' ? '4.0 นาที'
+        : FL.serversAt(u, PEAK_T) + ' โต๊ะ · ' + u.serviceMean + ' น.';
+    });
+    FlowMap.draw('netmap', { values: {}, sub: sub, mode: 'score', rework: '(ถ้ามี)' });
+  }
+  netmap();
+
+  /* ---------- ตารางงานทำซ้ำ ---------- */
+  (function () {
+    var html = '';
+    [0, 0.03, 0.05, 0.08, 0.12, 0.20].forEach(function (r) {
+      var mult = 1 / (1 - r);
+      var lam = 1.732 * mult;
+      var rho = (lam * 4.2) / 11;
+      var cls = r > 0.03 ? 'is-flag' : '';
+      html += '<tr class="' + cls + '"><td class="num">' + (r * 100).toFixed(0) + '%</td>' +
+        '<td class="num">' + mult.toFixed(3) + '×</td>' +
+        '<td class="num">' + lam.toFixed(3) + '</td>' +
+        '<td class="num">' + rho.toFixed(3) + '</td>' +
+        '<td>' + (r === 0 ? 'ฐาน' : 'เท่ากับเสียโต๊ะไป ' + ((mult - 1) * 11).toFixed(1) + ' ตัว') + '</td></tr>';
+    });
+    document.getElementById('reworkTab').innerHTML = html;
+  })();
+
+  /* ---------- ห้องทดลองกำลังระบบ ---------- */
+  var extraServers = {};
+  SERVICE.forEach(function (u) { extraServers[u.id] = 0; });
+
+  var sliderHtml = SERVICE.map(function (u) {
+    var base = FL.serversAt(u, PEAK_T);
+    return '<div class="ctrl" style="margin-bottom:0">' +
+      '<label for="sv_' + u.id + '"><span>' + u.short + '</span>' +
+      '<span class="val" id="sv_' + u.id + 'V"></span></label>' +
+      '<input type="range" id="sv_' + u.id + '" min="' + Math.max(1, base - 4) +
+      '" max="' + (base + 12) + '" step="1" value="' + base + '"></div>';
+  }).join('');
+  document.getElementById('capSliders').innerHTML = sliderHtml;
+
+  function capLab() {
+    var demand = Site.v('dem');        // ราย/ชั่วโมง
+    var rw = Site.v('rw');
+    Site.show('dem', demand + ' ราย/ชม.');
+    Site.show('rw', (rw * 100).toFixed(0) + '%');
+
+    var lam0 = demand / 60;            // ราย/นาที
+    var lams = FL.unitLambdaAt(PEAK_T, rw);
+    /* FL.unitLambdaAt ใช้ λ ที่ประตูของเวลานั้น — ปรับสเกลให้ตรงกับที่ผู้ใช้ตั้ง */
+    var scale = lam0 / FL.arrivalRate(PEAK_T);
+    var rows = '', minCap = Infinity, minUnit = null, second = Infinity, secondUnit = null;
+    var caps = [];
+
+    SERVICE.forEach(function (u) {
+      var c = Site.v('sv_' + u.id);
+      Site.show('sv_' + u.id, c + ' โต๊ะ');
+      var lam = (lams[u.id] || 0) * scale;
+      var share = lam / lam0;
+      var capacity = (60 * c) / u.serviceMean;          // ราย/ชม. ที่หน่วยนี้ทำได้
+      var sysCap = share > 0 ? capacity / share : Infinity;
+      var rho = c > 0 ? (lam * u.serviceMean) / c : Infinity;
+      caps.push({ u: u, sysCap: sysCap, rho: rho, capacity: capacity, share: share, c: c });
+      if (sysCap < minCap) { second = minCap; secondUnit = minUnit; minCap = sysCap; minUnit = u; }
+      else if (sysCap < second) { second = sysCap; secondUnit = u; }
+    });
+
+    caps.forEach(function (x) {
+      var isMin = x.u === minUnit;
+      rows += '<tr class="' + (isMin ? 'is-flag' : '') + '">' +
+        '<th>' + x.u.short + (isMin ? ' <span class="pill bad">คอขวด</span>' : '') + '</th>' +
+        '<td class="num">' + x.c + '</td>' +
+        '<td class="num">' + x.u.serviceMean.toFixed(1) + '</td>' +
+        '<td class="num">' + x.capacity.toFixed(0) + '</td>' +
+        '<td class="num">' + (x.share * 100).toFixed(0) + '%</td>' +
+        '<td class="num"><strong>' + x.sysCap.toFixed(0) + '</strong></td>' +
+        '<td class="num">' + (Number.isFinite(x.rho) ? x.rho.toFixed(2) : '—') + '</td>' +
+        '<td>' + (x.rho >= 1 ? '<span class="pill bad">ล้น</span>'
+          : x.rho > 0.85 ? '<span class="pill warn">ตึง</span>'
+          : '<span class="pill ok">พอ</span>') + '</td></tr>';
+    });
+    document.querySelector('#capTab tbody').innerHTML = rows;
+
+    var ok = minCap >= demand;
+    document.getElementById('capVerdict').innerHTML =
+      '<div class="' + (ok ? 'tip' : 'warnbox') + '" style="margin:0 0 16px">' +
+      '<strong>เพดานของทั้งระบบ = ' + minCap.toFixed(0) + ' ราย/ชม.</strong> ' +
+      'ถูกกำหนดโดย <strong>' + minUnit.name + '</strong>' +
+      (secondUnit ? ' · อันดับถัดไปคือ ' + secondUnit.short + ' ที่ ' + second.toFixed(0) + ' ราย/ชม.' : '') +
+      '<br>ความต้องการ ' + demand + ' ราย/ชม. → ' +
+      (ok ? 'ระบบรับไหว เหลือที่ว่าง ' + (minCap - demand).toFixed(0) + ' ราย/ชม.'
+          : 'ระบบรับไม่ไหว ขาดอยู่ ' + (demand - minCap).toFixed(0) + ' ราย/ชม. คิวจะสะสมขึ้นเรื่อย ๆ') +
+      '</div>';
+  }
+
+  Site.bind(['dem', 'rw'].concat(SERVICE.map(function (u) { return 'sv_' + u.id; })), capLab);
+
+  /* ---------- คอขวดย้ายที่ ---------- */
+  function moveChart() {
+    var lam0 = 104 / 60;
+    var lams = FL.unitLambdaAt(PEAK_T, 0);
+    var scale = lam0 / FL.arrivalRate(PEAK_T);
+    var pts = [], pts2 = [];
+    for (var c = 5; c <= 20; c++) {
+      var best = Infinity, who = null;
+      SERVICE.forEach(function (u) {
+        var cc = u.id === 'PHLEB' ? c : FL.serversAt(u, PEAK_T);
+        var lam = (lams[u.id] || 0) * scale;
+        var share = lam / lam0;
+        var sysCap = share > 0 ? ((60 * cc) / u.serviceMean) / share : Infinity;
+        if (sysCap < best) { best = sysCap; who = u.id; }
+      });
+      pts.push([c, Math.min(best, 260)]);
+      pts2.push([c, ((60 * c) / 4.2)]);
+    }
+    Chart.mount('moveChart', Chart.lineChart({
+      width: 700, height: 280, x0: 5, x1: 20, y0: 0, y1: 260, nx: 8,
+      xlabel: 'จำนวนโต๊ะที่จุดเจาะเลือด', ylabel: 'ราย/ชั่วโมง',
+      xfmt: function (v) { return String(Math.round(v)); },
+      series: [
+        { points: pts2, color: 'var(--s5)', width: 1.8, dash: '5 3' },
+        { points: pts, color: 'var(--s1)', width: 2.8, dots: 3 },
+      ],
+      rules: [{ y: 104, color: 'var(--ok)', label: 'ความต้องการเฉลี่ยช่วงพีค 104' },
+              { y: 169, color: 'var(--bad)', label: 'ครึ่งชั่วโมงแรก 169' },
+              { x: 7, color: 'var(--ink-faint)', label: 'ของจริง 7' }],
+      label: 'เพดานของระบบเมื่อเพิ่มโต๊ะที่จุดเจาะ',
+    }));
+    Chart.mount('moveLegend', Chart.legend([
+      { name: 'เพดานของทั้งระบบ', color: 'var(--s1)' },
+      { name: 'กำลังของจุดเจาะเลือดอย่างเดียว', color: 'var(--s5)' },
+    ]));
+  }
+  moveChart();
+
+  document.addEventListener('themechange', function () { netmap(); capLab(); moveChart(); });
+})();
+</script>
+</body>
+</html>

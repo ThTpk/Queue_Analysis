@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 8 — คำนวณกำลังคน จากเป้าหมายย้อนกลับ</title>
+<meta name="description" content="หาจำนวนโต๊ะจากเป้าเวลารอด้วย Erlang-C ย้อนกลับ, square-root staffing, การประหยัดต่อขนาด, ต้นทุนต่อนาทีที่ลดได้ และการจัดกะด้วย integer programming">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/08-staffing.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 8</p>
+  <h1>คำนวณกำลังคน</h1>
+  <p class="lede">
+    จนถึงบทที่แล้วเราถามว่า "เปิด c โต๊ะ แล้วรอกี่นาที"
+    บทนี้กลับทิศคำถาม: <strong>"อยากให้รอไม่เกิน t นาที ต้องเปิดกี่โต๊ะ ช่วงไหน ราคาเท่าไร"</strong>
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="two">1. สองเกณฑ์ที่ต้องผ่านพร้อมกัน</h2>
+
+<p>FlowLens คำนวณจำนวนโต๊ะที่ต้องการจากสองเงื่อนไข แล้วเลือกค่าที่มากกว่า</p>
+
+<div class="grid g2">
+  <div class="card">
+    <p class="boxtitle">เกณฑ์ที่ 1 — เพดานการใช้กำลัง</p>
+    <div class="formula tight" style="border:0;background:none;padding:0;margin:.4em 0">
+      $$c \;\ge\; \left\lceil \frac{\lambda\,E[S]}{\rho_{\max}} \right\rceil$$
+    </div>
+    <p style="margin-bottom:0"><small>รับประกันว่าระบบเสถียรและยังเหลือที่ว่าง
+      ค่าเริ่มต้น <code>ρ_max = 0.85</code></small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">เกณฑ์ที่ 2 — เป้าเวลารอ</p>
+    <p style="margin:.4em 0">หา c ที่น้อยที่สุดซึ่งทำให้</p>
+    <div class="formula tight" style="border:0;background:none;padding:0;margin:.4em 0">
+      $$W_q(p{=}0.9) \;\le\; t_{\text{target}}$$
+    </div>
+    <p style="margin-bottom:0"><small>ไม่มีสูตรปิด ต้อง<strong>ไล่ลอง c ทีละค่า</strong>
+      จนกว่าจะผ่าน</small></p>
+  </div>
+</div>
+
+<pre><code>def min_servers_for_wait(lam, service_mean, target_wait, p=0.9, ca2=1.0, cs2=1.0,
+                         rho_max=0.999):
+    start = min_servers_for_utilization(lam, service_mean, rho_max)
+    for c in range(max(1, start), MAX_SERVERS_SEARCH + 1):
+        w = wq_percentile(lam, service_mean, c, p=p, ca2=ca2, cs2=cs2)
+        if math.isfinite(w) and w &lt;= target_wait:
+            return c
+    return MAX_SERVERS_SEARCH
+
+# แล้วเลือกค่าที่เข้มกว่า
+staffing["servers_needed"] = staffing[["min_servers_rho", "min_servers_wait"]].max(axis=1)
+staffing["gap"]            = staffing["servers_needed"] - staffing["servers"]</code></pre>
+<p><small>— <code>flowlens/core/analysis/queueing.py</code></small></p>
+
+<div class="note">
+  <p class="boxtitle">ทำไมต้องเริ่มไล่จากเกณฑ์ ρ ก่อน</p>
+  <p style="margin-bottom:0">
+    เพราะถ้า c น้อยกว่า <span class="katex-nowrap">$\lambda E[S]$</span>
+    สูตรจะคืนค่า ∞ และวนไปเรื่อย ๆ โดยไม่มีประโยชน์
+    การเริ่มที่จุดเสถียรทำให้การค้นหาเร็วและปลอดภัย
+  </p>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 8.1 — จุดเจาะเลือดต้องการกี่โต๊ะ</header>
+  <div class="body">
+    <div class="calc">λ = 1.732 ราย/นาที   E[S] = 4.2   ca² = 1.0   cs² = 0.20
+เป้า: ผู้ป่วย 90% รอไม่เกิน 15 นาที
+
+<span class="cm">── เกณฑ์ที่ 1: ρ ≤ 0.85 ────────────────────</span>
+c ≥ ⌈ 1.732 × 4.2 / 0.85 ⌉ = ⌈ 8.56 ⌉ = <span class="hl">9 โต๊ะ</span>
+
+<span class="cm">── เกณฑ์ที่ 2: Wq(p90) ≤ 15 นาที ───────────</span>
+c = 7  → ρ = 1.039 → Wq p90 = ∞        ✗ ไม่เสถียร
+c = 8  → ρ = 0.909 → Wq p90 = 7.0 นาที  ✓ ผ่าน
+c = 9  → ρ = 0.808 → Wq p90 = 2.3 นาที
+<span class="hl">ต้องการอย่างน้อย 8 โต๊ะ</span>
+
+<span class="cm">── เลือกค่าที่เข้มกว่า ──────────────────────</span>
+servers_needed = max(9, 8) = <span class="hl">9 โต๊ะ</span>
+เปิดจริง       = 7 โต๊ะ
+<span class="hl">gap = +2 โต๊ะ</span>  ← ข้อเสนอที่ส่งถึงหัวหน้าหน่วย</div>
+    <p style="margin-bottom:0">
+      สังเกตว่า<strong>เกณฑ์ ρ เข้มกว่าเกณฑ์เวลารอ</strong>ในกรณีนี้
+      เพราะ cs² ต่ำทำให้เวลารอสั้นกว่าที่คาด FlowLens จึงยังยืนยันให้เปิด 9 โต๊ะ
+      เพื่อกันความผันผวนรายวัน ไม่ใช่แค่ให้ผ่านเป้าแบบเฉียดฉิว
+    </p>
+  </div>
+</div>
+
+<h2 id="sqrt">2. กฎรากที่สอง (square-root staffing)</h2>
+
+<p>
+  มีกฎประมาณที่คิดในหัวได้และแม่นอย่างน่าประหลาด สำหรับระบบที่มีหลายโต๊ะ
+</p>
+
+<div class="formula">
+  $$c^{*} \;\approx\; a \;+\; \beta\sqrt{a}, \qquad a=\lambda E[S]$$
+  <div class="caption">
+    a คือกำลังที่ "ต้องมีแน่ ๆ" ส่วน <span class="katex-nowrap">$\beta\sqrt{a}$</span>
+    คือกันชนสำหรับความผันแปร — เรียกว่า QED regime (Quality and Efficiency Driven)
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th class="num">β</th><th>ระดับบริการโดยประมาณ</th><th>เหมาะกับ</th></tr></thead>
+  <tbody>
+    <tr><th class="num">0.0</th><td>ρ → 1, คิวยาว, ไม่เสถียร</td><td>ไม่ควรใช้</td></tr>
+    <tr><th class="num">0.5</th><td>ประมาณครึ่งหนึ่งต้องรอ</td><td>งานหลังบ้านที่รอได้</td></tr>
+    <tr class="is-flag"><th class="num">1.0</th><td>ประมาณ 20–30% ต้องรอ</td><td>บริการผู้ป่วยทั่วไป</td></tr>
+    <tr><th class="num">1.5</th><td>ประมาณ 10% ต้องรอ</td><td>บริการที่ต้องเร็ว</td></tr>
+    <tr><th class="num">2.0</th><td>น้อยกว่า 5% ต้องรอ</td><td>ห้องฉุกเฉิน, งานด่วน</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 8.2 — คิดในหัวใน 10 วินาที</header>
+  <div class="body">
+    <div class="calc">a = 1.732 × 4.2 = 7.27
+√a = 2.70
+
+β = 0.5 → c ≈ 7.27 + 1.35 = 8.62  → <span class="hl">9 โต๊ะ</span>
+β = 1.0 → c ≈ 7.27 + 2.70 = 9.97  → 10 โต๊ะ
+
+คำตอบจากสูตรเต็ม (ρ ≤ 0.85) = 9 โต๊ะ
+→ ตรงกับ β = 0.5 พอดี ส่วน β = 1.0 เผื่อไว้มากกว่าหนึ่งโต๊ะ</div>
+    <p style="margin-bottom:0">
+      กฎนี้ใช้สื่อสารกับผู้บริหารได้ดีมาก เพราะอธิบายได้ว่า
+      <strong>"งานต้องการ 7.3 โต๊ะ บวกกันชนอีก 2.7 โต๊ะสำหรับความไม่แน่นอน"</strong>
+      แทนที่จะชี้ไปที่ผลลัพธ์ของสูตรที่ไม่มีใครเข้าใจ
+    </p>
+  </div>
+</div>
+
+<h3>การประหยัดต่อขนาด — ทำไมหน่วยใหญ่ได้เปรียบ</h3>
+
+<p>
+  กันชนโตตาม <span class="katex-nowrap">$\sqrt{a}$</span> ไม่ใช่ตาม a
+  แปลว่า<strong>ยิ่งหน่วยใหญ่ ยิ่งต้องการกันชนเป็นสัดส่วนน้อยลง</strong>
+</p>
+
+<figure>
+  <div id="sqrtChart"></div>
+  <figcaption>สัดส่วนกันชนที่ต้องมี (β√a ÷ a) เทียบกับขนาดของหน่วย ที่ระดับบริการเท่ากัน —
+    หน่วยที่รับงาน 4 เท่า ต้องการกันชนเป็นสัดส่วนเพียงครึ่งเดียว</figcaption>
+</figure>
+
+<div class="tip">
+  <p style="margin-bottom:0">
+    นี่คือเหตุผลเชิงคณิตศาสตร์ว่าทำไมการ<strong>รวมหน่วยเล็กเข้าด้วยกัน</strong>
+    ถึงประหยัดได้จริง และทำไมเครื่องเคมีคลินิก 20 เครื่องจึงรับงานได้ที่ ρ = 0.81
+    โดยคนไข้แทบไม่ต้องรอ ขณะที่จุดเจาะเลือด 7 โต๊ะที่ ρ = 1.00 พังสนิท
+  </p>
+</div>
+
+<h2 id="bybin">3. วางแผนรายช่วงเวลา ไม่ใช่รายวัน</h2>
+
+<p>
+  λ เปลี่ยน 20 เท่าระหว่างวัน การคำนวณครั้งเดียวสำหรับทั้งวันจึงไร้ความหมาย
+  FlowLens แบ่งเป็นช่วงละ 15 นาที แล้วคำนวณ <code>servers_needed</code>
+  และ <code>gap</code> ของทุกช่วง
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 8.1 — ตารางโต๊ะรายช่วง 30 นาที</span>
+    <span class="hint">เลือกหน่วยและเป้าหมาย แล้วดูว่าต้องเพิ่มกี่โต๊ะ ช่วงไหน</span>
+  </header>
+  <div class="body">
+    <div class="grid g3" style="margin:0 0 14px">
+      <div class="ctrl" style="margin:0">
+        <label for="unit8"><span>หน่วย</span><span class="val"></span></label>
+        <select id="unit8" style="width:100%"></select>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="tgt8"><span>เป้า: 90% รอไม่เกิน</span><span class="val" id="tgt8V"></span></label>
+        <input type="range" id="tgt8" min="2" max="40" step="1" value="15">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="rmax8"><span>เพดาน ρ</span><span class="val" id="rmax8V"></span></label>
+        <input type="range" id="rmax8" min="0.6" max="0.98" step="0.01" value="0.85">
+      </div>
+    </div>
+    <div id="binChart"></div>
+    <div id="binLegend"></div>
+    <div class="tablewrap" style="margin-top:16px">
+      <table id="binTab">
+        <thead><tr>
+          <th>ช่วงเวลา</th><th class="num">λ<br><small>ราย/นาที</small></th>
+          <th class="num">เปิดจริง</th><th class="num">ต้องการ<br><small>จาก ρ</small></th>
+          <th class="num">ต้องการ<br><small>จากเป้ารอ</small></th>
+          <th class="num">สรุป</th><th class="num">ส่วนต่าง</th>
+          <th class="num">ρ ปัจจุบัน</th><th class="num">รอ p90<br><small>ปัจจุบัน</small></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="binSummary"></div>
+  </div>
+</div>
+
+<h2 id="cost">4. ตีราคาข้อเสนอ</h2>
+
+<p>
+  ข้อเสนอที่ไม่มีตัวเลขค่าใช้จ่ายกำกับ ไม่มีทางผ่านที่ประชุม
+  <code>config.yaml</code> ของ FlowLens จึงมีช่อง <code>cost_per_server_hour</code>
+  ของทุกหน่วย
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>หน่วย</th><th class="num">ต้นทุน/โต๊ะ/ชม.</th><th>หมายเหตุ</th></tr></thead>
+  <tbody id="costTab"></tbody>
+</table>
+</div>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 8.2 — คุ้มไหมที่จะเพิ่มโต๊ะ</span>
+    <span class="hint">เส้นค่าใช้จ่ายตัดกับเส้นเวลารอตรงไหน</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="c8"><span>จำนวนโต๊ะช่วงพีค</span><span class="val" id="c8V"></span></label>
+          <input type="range" id="c8" min="5" max="18" step="1" value="7">
+        </div>
+        <div class="ctrl">
+          <label for="hrs8"><span>ชั่วโมงที่เปิดเพิ่ม</span><span class="val" id="hrs8V"></span></label>
+          <input type="range" id="hrs8" min="1" max="6" step="0.5" value="2.5">
+          <div class="sub">ช่วงพีค 06:30–09:00 = 2.5 ชั่วโมง</div>
+        </div>
+        <div id="costOut"></div>
+      </div>
+      <div>
+        <div id="costChart"></div>
+        <div class="legend">
+          <span><i style="background:var(--s2)"></i>เวลารอ p90 (นาที)</span>
+          <span><i style="background:var(--s5)"></i>ค่าใช้จ่ายส่วนเพิ่ม (ร้อยบาท/วัน)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="shift">5. จากจำนวนโต๊ะ สู่ตารางกะที่ใช้ได้จริง</h2>
+
+<p>
+  ตารางรายช่วง 15 นาทีบอกว่า "ต้องการ 9 คน ตอน 07:00 และ 4 คน ตอน 11:00"
+  แต่เราจ้างคนเป็น<strong>กะ</strong> ไม่ใช่เป็นช่วง 15 นาที
+  การแปลงจากความต้องการรายช่วงเป็นตารางกะ คือปัญหา
+  <strong>set covering</strong> ซึ่งแก้ด้วย integer programming
+</p>
+
+<div class="formula">
+  $$\min \sum_{s} k_s\,\text{cost}_s
+  \qquad\text{s.t.}\qquad
+  \sum_{s \ni b} k_s \;\ge\; \text{need}_b \;\;\forall b,
+  \qquad k_s \in \mathbb{Z}_{\ge 0}$$
+  <div class="caption">
+    <span class="katex-nowrap">$k_s$</span> = จำนวนคนที่เข้ากะแบบ s ·
+    <span class="katex-nowrap">$s \ni b$</span> หมายถึงกะ s ครอบคลุมช่วงเวลา b
+  </div>
+</div>
+
+<p>
+  FlowLens แก้ปัญหานี้ในโมดูล <code>analysis/staffing.py</code>
+  แล้วออกมาเป็นตารางกะพร้อมใช้ ส่งออกเป็น Excel ให้หัวหน้าหน่วยได้ทันที
+</p>
+
+<div class="warnbox">
+  <p class="boxtitle">ข้อควรระวัง: SIPP และกับดักของการคำนวณรายช่วง</p>
+  <p style="margin-bottom:0">
+    วิธีที่ใช้ในบทนี้เรียกว่า <strong>SIPP</strong> (Stationary Independent Period by Period)
+    — สมมติว่าแต่ละช่วง 15 นาทีเป็นระบบคิวอิสระที่นิ่งแล้ว
+    สมมติฐานนี้<strong>ผิดเมื่อคิวจากช่วงก่อนไหลมาถึงช่วงนี้</strong>
+    ซึ่งเป็นสิ่งที่เกิดขึ้นทุกเช้าในกรณีศึกษา
+    วิธีแก้ที่รู้จักกันดีคือ <strong>Lag SIPP</strong> (เลื่อนช่วงที่ใช้คำนวณไปข้างหน้า
+    ประมาณหนึ่งเท่าของเวลาบริการ) แต่ทางที่ตรงที่สุดคือ<strong>จำลองทั้งวัน</strong>
+    ซึ่งเป็นเรื่องของบทถัดไป
+  </p>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 8</h4>
+  <ul>
+    <li>จำนวนโต๊ะที่ต้องการ = <strong>ค่าที่มากกว่า</strong> ระหว่างเกณฑ์ ρ กับเกณฑ์เวลารอ</li>
+    <li>เกณฑ์เวลารอไม่มีสูตรปิด ต้อง<strong>ไล่ลอง c ทีละค่า</strong> เริ่มจากจุดที่เสถียร</li>
+    <li><strong>c ≈ a + β√a</strong> — คิดในหัวได้ และอธิบายให้ผู้บริหารเข้าใจง่ายที่สุด</li>
+    <li>กันชนโตตาม √a ไม่ใช่ a → <strong>หน่วยใหญ่ได้เปรียบเสมอ</strong></li>
+    <li>ต้องคำนวณ<strong>รายช่วงเวลา</strong> แล้วค่อยแปลงเป็นกะด้วย integer programming</li>
+    <li>SIPP ใช้ได้ดีเมื่อไม่มีคิวค้างข้ามช่วง — ถ้ามี ต้องใช้ Lag SIPP หรือการจำลอง</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- เส้นโค้งการประหยัดต่อขนาด ---------- */
+  function sqrtChart() {
+    var b1 = [], b2 = [];
+    for (var a = 1; a <= 60; a += 0.5) {
+      b1.push([a, (1.0 * Math.sqrt(a) / a) * 100]);
+      b2.push([a, (2.0 * Math.sqrt(a) / a) * 100]);
+    }
+    Chart.mount('sqrtChart', Chart.lineChart({
+      width: 700, height: 250, x0: 1, x1: 60, y0: 0, y1: 110,
+      xlabel: 'ขนาดของหน่วย a = λE[S] (erlang)', ylabel: 'กันชนที่ต้องมี (% ของ a)',
+      series: [
+        { points: b2, color: 'var(--s2)', width: 2.2 },
+        { points: b1, color: 'var(--s1)', width: 2.6 },
+      ],
+      rules: [{ x: 7.27, color: 'var(--ink-faint)', label: 'จุดเจาะ a=7.3' },
+              { x: 16.1, color: 'var(--s6)', label: 'เครื่องเคมี a=16.1' }],
+      label: 'การประหยัดต่อขนาด',
+    }));
+  }
+  sqrtChart();
+
+  /* ---------- ตารางรายช่วง ---------- */
+  var SERVICE = FL.units.filter(function (u) { return u.type !== 'transport'; });
+  document.getElementById('unit8').innerHTML = SERVICE.map(function (u) {
+    return '<option value="' + u.id + '"' + (u.id === 'PHLEB' ? ' selected' : '') + '>' +
+      u.name + '</option>';
+  }).join('');
+
+  function bins() {
+    var id = document.getElementById('unit8').value;
+    var u = FL.byId[id];
+    var tgt = Site.v('tgt8'), rmax = Site.v('rmax8');
+    Site.show('tgt8', tgt + ' นาที');
+    Site.show('rmax8', rmax.toFixed(2));
+
+    var cs2 = u.truth.serviceCv * u.truth.serviceCv;
+    var rows = '', open = [], need = [], labels = [], totalGapHours = 0;
+
+    for (var t = FL.project.openFrom - 30; t < FL.project.openTo; t += 30) {
+      var lams = FL.unitLambdaAt(t + 1, 0);
+      var lam = lams[id] || 0;
+      if (lam <= 0) continue;
+      var c = FL.serversAt(u, t + 1);
+      var nRho = Q.minServersForRho(lam, u.serviceMean, rmax);
+      var nWait = Q.minServersForWait(lam, u.serviceMean, tgt, { p: 0.9, ca2: 1, cs2: cs2 });
+      var needed = Math.max(nRho, nWait);
+      var gap = needed - c;
+      var rho = c > 0 ? (lam * u.serviceMean) / c : Infinity;
+      var p90 = Q.wqPercentile(lam, u.serviceMean, c, 0.9, 1, cs2);
+      if (gap > 0) totalGapHours += gap * 0.5;
+
+      labels.push(Q.fmt.clock(t));
+      open.push(c); need.push(needed);
+
+      rows += '<tr class="' + (gap > 0 ? 'is-flag' : '') + '">' +
+        '<th>' + Q.fmt.clock(t) + '–' + Q.fmt.clock(t + 30) + '</th>' +
+        '<td class="num">' + lam.toFixed(3) + '</td>' +
+        '<td class="num">' + c + '</td>' +
+        '<td class="num">' + nRho + '</td>' +
+        '<td class="num">' + nWait + '</td>' +
+        '<td class="num"><strong>' + needed + '</strong></td>' +
+        '<td class="num">' + (gap > 0 ? '<span class="pill bad">+' + gap + '</span>'
+          : gap < 0 ? '<span class="pill ok">' + gap + '</span>' : '0') + '</td>' +
+        '<td class="num">' + (Number.isFinite(rho) ? rho.toFixed(2) : '—') + '</td>' +
+        '<td class="num">' + (Number.isFinite(p90) ? p90.toFixed(1) : '∞') + '</td></tr>';
+    }
+    document.querySelector('#binTab tbody').innerHTML = rows;
+
+    Chart.mount('binChart', Chart.barChart({
+      width: 700, height: 250, labels: labels, rotate: true,
+      series: [
+        { name: 'เปิดจริง', values: open, color: 'var(--s1)' },
+        { name: 'ต้องการ', values: need, color: 'var(--s2)' },
+      ],
+      ylabel: 'จำนวนโต๊ะ', margin: { t: 14, r: 16, b: 56, l: 48 },
+      label: 'โต๊ะที่เปิดจริงเทียบกับที่ต้องการ',
+    }));
+    Chart.mount('binLegend', Chart.legend([
+      { name: 'เปิดจริง', color: 'var(--s1)' },
+      { name: 'ที่ควรเปิด', color: 'var(--s2)' },
+    ]));
+
+    var cost = totalGapHours * u.cost;
+    document.getElementById('binSummary').innerHTML =
+      '<div class="' + (totalGapHours > 0 ? 'warnbox' : 'tip') + '" style="margin:16px 0 0">' +
+      (totalGapHours > 0
+        ? '<strong>ขาดกำลังรวม ' + totalGapHours.toFixed(1) + ' โต๊ะ-ชั่วโมงต่อวัน</strong>' +
+          ' — คิดเป็นค่าใช้จ่ายส่วนเพิ่มประมาณ <strong>' + Q.fmt.i(cost) + ' บาท/วัน</strong>' +
+          ' หรือ ' + Q.fmt.i(cost * 20) + ' บาท/เดือน (20 วันทำการ) ที่อัตรา ' +
+          u.cost + ' บาท/โต๊ะ/ชั่วโมง'
+        : '<strong>กำลังเพียงพอทุกช่วงเวลา</strong> ตามเป้าที่ตั้งไว้') +
+      '</div>';
+  }
+  Site.bind(['unit8', 'tgt8', 'rmax8'], bins);
+
+  /* ---------- ตารางต้นทุน ---------- */
+  document.getElementById('costTab').innerHTML = FL.units.map(function (u) {
+    return '<tr><th>' + u.name + '</th><td class="num">' +
+      (u.cost ? Q.fmt.i(u.cost) + ' บาท' : '—') + '</td><td><small>' +
+      (u.valueAdded ? 'สร้างคุณค่าโดยตรง' : 'ไม่สร้างคุณค่าโดยตรง (NVA)') +
+      (u.type === 'transport' ? ' · ไม่มีต้นทุนต่อโต๊ะ' : '') + '</small></td></tr>';
+  }).join('');
+
+  /* ---------- คุ้มไหม ---------- */
+  function costLab() {
+    var c = Site.v('c8'), hrs = Site.v('hrs8');
+    Site.show('c8', c + ' โต๊ะ');
+    Site.show('hrs8', hrs.toFixed(1) + ' ชม.');
+
+    var u = FL.byId.PHLEB, lam = 1.732, cs2 = 0.20, base = 7;
+    var waits = [], costs = [];
+    for (var k = 5; k <= 18; k++) {
+      var p90 = Q.wqPercentile(lam, u.serviceMean, k, 0.9, 1, cs2);
+      waits.push([k, Number.isFinite(p90) ? Math.min(p90, 70) : 70]);
+      costs.push([k, Math.max(k - base, 0) * hrs * u.cost / 100]);
+    }
+    Chart.mount('costChart', Chart.lineChart({
+      width: 600, height: 260, x0: 5, x1: 18, y0: 0, y1: 72, nx: 13,
+      xlabel: 'จำนวนโต๊ะ', ylabel: 'นาที  /  ร้อยบาทต่อวัน',
+      xfmt: function (v) { return String(Math.round(v)); },
+      series: [
+        { points: waits, color: 'var(--s2)', width: 2.6, dots: 2.6 },
+        { points: costs, color: 'var(--s5)', width: 2.2, dash: '5 3' },
+      ],
+      rules: [{ x: c, color: 'var(--ink-faint)', label: 'c = ' + c }],
+      label: 'เวลารอเทียบค่าใช้จ่าย',
+    }));
+
+    var p90now = Q.wqPercentile(lam, u.serviceMean, c, 0.9, 1, cs2);
+    var p90base = Q.wqPercentile(lam, u.serviceMean, base, 0.9, 1, cs2);
+    var extra = Math.max(c - base, 0) * hrs * u.cost;
+    var saved = (Number.isFinite(p90base) ? p90base : 66.3) - (Number.isFinite(p90now) ? p90now : 66.3);
+    var patients = 416.45 * 0.6;   // ประมาณสัดส่วนผู้ป่วยที่มาช่วงพีค
+    document.getElementById('costOut').innerHTML =
+      '<div class="stats" style="grid-template-columns:repeat(2,1fr);margin:16px 0 0">' +
+      '<div class="stat"><div class="k">รอ p90</div><div class="v">' +
+        (Number.isFinite(p90now) ? p90now.toFixed(1) : '∞') + '<span class="u">น.</span></div></div>' +
+      '<div class="stat"><div class="k">ค่าใช้จ่ายเพิ่ม</div><div class="v">' +
+        Q.fmt.i(extra) + '<span class="u">บ./วัน</span></div></div>' +
+      '</div>' +
+      (c > base
+        ? '<div class="tip" style="margin:14px 0 0">ลดเวลารอ p90 ได้ ' + saved.toFixed(0) +
+          ' นาที สำหรับผู้ป่วยช่วงพีคประมาณ ' + Math.round(patients) + ' ราย/วัน<br>' +
+          '<strong>= ' + (extra / Math.max(patients, 1)).toFixed(1) +
+          ' บาทต่อผู้ป่วยหนึ่งราย</strong> เพื่อประหยัดเวลาของเขา ' + saved.toFixed(0) + ' นาที</div>'
+        : '<div class="warnbox" style="margin:14px 0 0">ที่ ' + c +
+          ' โต๊ะ ρ = ' + ((lam * u.serviceMean) / c).toFixed(2) +
+          (((lam * u.serviceMean) / c) >= 1 ? ' — ระบบไม่เสถียร คิวโตไม่หยุด' : '') + '</div>');
+  }
+  Site.bind(['c8', 'hrs8'], costLab);
+
+  document.addEventListener('themechange', function () { sqrtChart(); bins(); costLab(); });
+})();
+</script>
+</body>
+</html>

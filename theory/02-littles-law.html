@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 2 — กฎของลิตเติล (Little's Law)</title>
+<meta name="description" content="L = λW กฎที่ใช้ได้กับทุกระบบคิวโดยไม่ต้องรู้การแจกแจง พร้อมภาพพิสูจน์แบบพื้นที่ใต้กราฟ และการใช้งานจริงกับระบบ FlowLens">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/02-littles-law.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 2</p>
+  <h1>กฎของลิตเติล</h1>
+  <p class="lede">
+    สมการสามตัวแปรที่ใช้ได้กับคิวทุกชนิดบนโลก ไม่ว่าคนจะมาแบบไหน บริการนานเท่าไร
+    มีกี่โต๊ะ เรียงคิวอย่างไร — ขอแค่ระบบนิ่งแล้วเท่านั้น
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="law">1. ตัวกฎ</h2>
+
+<div class="formula">
+  $$\boxed{\,L \;=\; \lambda\,W\,}$$
+  <div class="caption">
+    จำนวนงานเฉลี่ยในระบบ = อัตราที่งานไหลเข้า × เวลาเฉลี่ยที่งานหนึ่งชิ้นอยู่ในระบบ
+  </div>
+</div>
+
+<p>
+  และเพราะมันใช้ได้กับ "ระบบ" อะไรก็ได้ที่เราวาดเส้นรอบไว้
+  เราจึงใช้กับ <em>เฉพาะส่วนคิว</em> ได้ด้วย
+</p>
+
+<div class="formula tight">
+  $$L_q \;=\; \lambda\,W_q \qquad\qquad W \;=\; W_q + E[S] \qquad\qquad L \;=\; L_q + c\rho$$
+  <div class="caption">
+    ส่วน <span class="katex-nowrap">$c\rho = \lambda E[S]$</span> คือจำนวนคนที่กำลัง<em>รับบริการ</em>อยู่โดยเฉลี่ย
+  </div>
+</div>
+
+<div class="note">
+  <p class="boxtitle">สิ่งที่ทำให้กฎนี้พิเศษ</p>
+  <p style="margin-bottom:0">
+    กฎของลิตเติล <strong>ไม่ต้องการสมมติฐานเรื่องการแจกแจงเลย</strong>
+    ไม่สนว่าคนมาแบบ Poisson หรือมาเป็นรถบัส ไม่สนว่าเวลาบริการเป็น exponential หรือคงที่
+    ไม่สนว่าจะ FIFO หรือให้เคสด่วนแซง ขอเพียงระบบ <strong>นิ่ง</strong>
+    (งานเข้าเท่างานออกในระยะยาว ไม่มีงานค้างสะสมไม่สิ้นสุด)
+    สูตรอื่นทุกสูตรในเว็บนี้ต้องมีสมมติฐาน แต่สูตรนี้ไม่ต้อง
+  </p>
+</div>
+
+<h2 id="why">2. ทำไมมันจึงจริง — พิสูจน์ด้วยพื้นที่</h2>
+
+<p>
+  ลองวาดกราฟสองเส้นบนแกนเวลาเดียวกัน
+</p>
+<ul>
+  <li><strong>A(t)</strong> = จำนวนคนที่มาถึงสะสม ตั้งแต่เปิดจนถึงเวลา t (เส้นขั้นบันไดขึ้น)</li>
+  <li><strong>D(t)</strong> = จำนวนคนที่ออกจากระบบไปแล้วสะสม</li>
+</ul>
+<p>
+  ระยะในแนวตั้งระหว่างสองเส้น คือ <strong>จำนวนคนที่อยู่ในระบบ ณ ขณะนั้น</strong> = L(t)<br>
+  ระยะในแนวนอนของคนคนหนึ่ง คือ <strong>เวลาที่คนนั้นอยู่ในระบบ</strong> = W ของคนนั้น
+</p>
+<p>
+  พื้นที่ระหว่างสองเส้นจึงคำนวณได้สองทาง — และต้องได้เท่ากัน
+</p>
+
+<div class="formula">
+  $$\underbrace{\int_0^T L(t)\,dt}_{\text{มองแนวตั้ง}} \;=\; \text{พื้นที่} \;=\;
+    \underbrace{\sum_{i=1}^{N} W_i}_{\text{มองแนวนอน}}$$
+</div>
+
+<p>หารทั้งสองข้างด้วย T:</p>
+
+<div class="formula">
+  $$\bar{L} \;=\; \frac{\text{พื้นที่}}{T} \;=\; \frac{N}{T}\cdot\frac{\sum W_i}{N}
+    \;=\; \lambda \cdot \bar{W}$$
+</div>
+
+<p>
+  เท่านี้เอง — ไม่มีการแจกแจงเข้ามาเกี่ยวข้องแม้แต่น้อย
+  มันเป็นแค่การนับพื้นที่สี่เหลี่ยมเดียวกันสองวิธี
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 2.1 — เห็นพื้นที่นั้นด้วยตาตัวเอง</span>
+    <span class="hint">เปลี่ยนจำนวนโต๊ะแล้วดูว่าพื้นที่เปลี่ยนอย่างไร</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="cc"><span>จำนวนโต๊ะ <code>c</code></span><span class="val" id="ccV"></span></label>
+          <input type="range" id="cc" min="1" max="6" step="1" value="2">
+        </div>
+        <div class="ctrl">
+          <label for="ll"><span>อัตราคนมา <code>λ</code></span><span class="val" id="llV"></span></label>
+          <input type="range" id="ll" min="0.1" max="1.2" step="0.02" value="0.40">
+        </div>
+        <div class="ctrl">
+          <label for="ss"><span>เวลาบริการ <code>E[S]</code></span><span class="val" id="ssV"></span></label>
+          <input type="range" id="ss" min="1" max="8" step="0.5" value="4">
+        </div>
+        <div class="ctrl">
+          <label for="sd"><span>เลขสุ่มชุดที่</span><span class="val" id="sdV"></span></label>
+          <input type="range" id="sd" min="1" max="40" step="1" value="7">
+          <div class="sub">เปลี่ยนชุดเพื่อดูว่าผลยังตรงกับกฎไหม</div>
+        </div>
+      </div>
+      <div>
+        <div id="chartLL"></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>A(t) มาถึงสะสม</span>
+          <span><i style="background:var(--s3)"></i>D(t) ออกไปสะสม</span>
+          <span><i style="background:color-mix(in srgb, var(--s1) 25%, transparent)"></i>พื้นที่ = เวลารวมที่ทุกคนอยู่ในระบบ</span>
+        </div>
+        <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+          <div class="stat"><div class="k">พื้นที่ / T  =  L</div><div class="v" id="vL">—</div></div>
+          <div class="stat"><div class="k">λ × W</div><div class="v" id="vLW">—</div></div>
+          <div class="stat"><div class="k">ส่วนต่าง</div><div class="v" id="vDiff">—</div></div>
+        </div>
+        <p style="font-size:.86rem;color:var(--ink-faint);margin:0" id="llnote"></p>
+        <p style="font-size:.86rem;color:var(--ink-faint);margin:0">
+          สองค่าแรกคำนวณคนละทางโดยสิ้นเชิง — ค่าหนึ่งจากพื้นที่ใต้กราฟ
+          อีกค่าหนึ่งจากเวลาที่คนแต่ละคนใช้ — แต่ได้เท่ากันเสมอ
+          (ต่างกันเล็กน้อยเพราะคนที่ยังค้างอยู่ตอนปิดบริการ)
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="use">3. ใช้ทำอะไรได้บ้าง</h2>
+
+<h3>3.1 คำนวณขนาดพื้นที่รอ</h3>
+
+<p>
+  นี่คือการใช้ที่ตรงไปตรงมาที่สุด และเป็นสิ่งที่ FlowLens คำนวณให้ในคอลัมน์ <code>lq</code>
+  ของตารางวิเคราะห์คิว
+</p>
+
+<div class="example">
+  <header>ตัวอย่างที่ 2.1 — ต้องมีเก้าอี้กี่ตัวหน้าจุดเจาะเลือด</header>
+  <div class="body">
+    <div class="calc">
+<span class="cm">// สถานการณ์จริงที่เปิด 7 โต๊ะ</span>
+λ      = 1.732 ราย/นาที
+Wq     = 31.4 นาที        <span class="cm">(เวลารอเฉลี่ยที่วัดได้จริง)</span>
+
+Lq     = λ × Wq = 1.732 × 31.4 = <span class="hl">54.4 คน</span>
+         <span class="cm">→ โดยเฉลี่ยมีคนนั่งรออยู่ 54 คน ตลอดช่วงเช้า</span>
+
+<span class="cm">// ข้อมูลจริงบันทึกไว้</span>
+คิว p90 = 88 คน    คิวสูงสุด = 140 คน
+    </div>
+    <p>
+      ค่าเฉลี่ย 54 คนคือสิ่งที่กฎของลิตเติลทำนาย ส่วน p90 = 88
+      และจุดสูงสุด 140 คือสิ่งที่ <em>ความผันแปร</em> เพิ่มเข้ามา
+      ถ้าออกแบบห้องรอจากค่าเฉลี่ย จะมีคนยืนล้นออกมานอกห้องเกือบทุกเช้า
+    </p>
+    <p style="margin-bottom:0">
+      <strong>หลักปฏิบัติ:</strong> ออกแบบพื้นที่รอจาก p90 ของจำนวนคิว ไม่ใช่ค่าเฉลี่ย
+      และใช้ค่าเฉลี่ยเพื่อตรวจว่าสมการสมเหตุสมผลเท่านั้น
+    </p>
+  </div>
+</div>
+
+<h3>3.2 ประมาณเวลารอ เมื่อมีแต่จำนวนคน</h3>
+
+<p>
+  โรงพยาบาลหลายแห่งไม่มี timestamp ครบ รู้แค่ว่า "เช้านี้คนล้นห้อง"
+  ถ้านับหัวได้และรู้ว่ารับกี่คนต่อชั่วโมง ก็ย้อนหาเวลารอได้ทันที
+</p>
+
+<div class="formula tight">
+  $$W_q \;=\; \frac{L_q}{\lambda}$$
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 2.2 — นับหัวตอน 08:00</header>
+  <div class="body">
+    <div class="calc">
+นับคนนั่งรอหน้าจุดเจาะได้     Lq = 60 คน
+ช่วงนั้นรับผู้ป่วยเข้ามา        λ  = 1.73 ราย/นาที
+
+Wq = 60 / 1.73 = <span class="hl">34.7 นาที</span>
+     <span class="cm">→ คนที่เพิ่งเดินเข้าแถวตอนนี้ จะได้เจาะประมาณ 08:35</span>
+    </div>
+    <p style="margin-bottom:0">
+      ตัวเลขนี้แม่นพอจะเอาไปขึ้นจอบอกผู้ป่วยได้เลย และเป็นวิธีที่ FlowLens
+      ใช้ <strong>ตรวจไขว้</strong> ความถูกต้องของข้อมูลนำเข้า — ถ้าเวลารอที่คำนวณจาก timestamp
+      ไม่ตรงกับ Lq/λ แปลว่าข้อมูลมีปัญหา
+    </p>
+  </div>
+</div>
+
+<h3>3.3 ดูทั้งระบบเป็นก้อนเดียว</h3>
+
+<p>
+  วาดเส้นรอบทั้งห้องแล็บ แล้วใช้กฎเดียวกันกับ TAT (turnaround time) ได้เลย
+</p>
+
+<div class="example">
+  <header>ตัวอย่างที่ 2.3 — มีผู้ป่วยอยู่ในระบบกี่คน ณ เวลาหนึ่ง</header>
+  <div class="body">
+    <div class="calc">
+ผู้ป่วยทั้งวัน   = 416.45 ราย
+เวลาเปิด        = 06:30–16:30 = 600 นาที
+λ (เฉลี่ยทั้งวัน) = 416.45 / 600 = 0.694 ราย/นาที
+TAT เฉลี่ย       = 65.9 นาที
+
+L = λ × W = 0.694 × 65.9 = <span class="hl">45.7 ราย</span>
+    <span class="cm">→ เฉลี่ยแล้วมีผู้ป่วย 46 รายอยู่ในกระบวนการพร้อมกัน</span>
+    </div>
+    <p style="margin-bottom:0">
+      แต่เพราะงานกระจุกตอนเช้า ตัวเลขจริงช่วง 08:00 สูงกว่านี้หลายเท่า
+      — อีกครั้งที่ค่าเฉลี่ยทั้งวันหลอกเรา
+    </p>
+  </div>
+</div>
+
+<h3>3.4 ตรวจสอบว่าแบบจำลองถูกต้อง</h3>
+
+<p>
+  FlowLens ใช้กฎนี้เป็นด่านตรวจ: หลังรันแบบจำลอง (SimPy) จะเช็กว่า
+  จำนวนคิวเฉลี่ยที่จำลองได้ เท่ากับ λ × เวลารอเฉลี่ยที่จำลองได้หรือไม่
+  ถ้าไม่เท่า แปลว่าแบบจำลองมีบั๊ก ไม่ใช่ว่าโลกแปลก
+</p>
+
+<div class="tip">
+  <p class="boxtitle">ใช้เป็นเครื่องมือตรวจข้อมูลได้ทันที</p>
+  <p style="margin-bottom:0">
+    ถ้ามีคนรายงานว่า "คิวเฉลี่ย 20 คน รอเฉลี่ย 5 นาที รับ 1.7 ราย/นาที"
+    ลองคูณดู: 1.7 × 5 = 8.5 ≠ 20 ตัวเลขชุดนี้เป็นไปไม่ได้
+    ต้องมีค่าใดค่าหนึ่งผิด — มักเป็นเวลารอที่วัดจากจุดที่ไม่ตรงกับคิวที่นับ
+  </p>
+</div>
+
+<h2 id="limits">4. ข้อจำกัดที่ต้องระวัง</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>เงื่อนไข</th><th>ถ้าละเมิดแล้วเกิดอะไร</th></tr></thead>
+  <tbody>
+    <tr><th>ระบบต้องนิ่ง (ρ &lt; 1)</th>
+      <td>ถ้า ρ ≥ 1 ทั้ง L และ W โตไม่หยุด ค่าเฉลี่ยไม่ลู่เข้าค่าใด กฎยังจริงเชิงคณิตศาสตร์แต่ใช้ทำนายไม่ได้</td></tr>
+    <tr><th>ช่วงเวลาต้องยาวพอ</th>
+      <td>ถ้าวัดช่วงสั้น ๆ ที่มีคนค้างอยู่ตอนต้นและตอนท้าย ผลจะเพี้ยน —
+        ยิ่งช่วงสั้นยิ่งเพี้ยนมาก</td></tr>
+    <tr><th>ขอบเขต "ระบบ" ต้องชัด</th>
+      <td>λ ที่ใช้ต้องเป็นอัตราที่เข้า<em>ขอบเขตนั้น</em> ถ้ามีงานทำซ้ำวนกลับ
+        λ ที่แท้จริงของหน่วยนั้นสูงกว่าที่ประตู (ดู <a href="06-network.html">บทที่ 6</a>)</td></tr>
+    <tr><th>มันบอกแค่ค่าเฉลี่ย</th>
+      <td>ไม่บอก p90 ไม่บอกคิวสูงสุด ไม่บอกว่าช่วงไหนแย่ —
+        ต้องใช้สูตรอื่นเสริม (<a href="05-ggc.html">บทที่ 5</a>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 2</h4>
+  <ul>
+    <li><strong>L = λW</strong> และ <strong>Lq = λWq</strong> — ใช้ได้กับทุกระบบที่นิ่ง ไม่ต้องรู้การแจกแจง</li>
+    <li>พิสูจน์ได้ด้วยการนับพื้นที่ระหว่างเส้นมาถึงสะสมกับเส้นออกสะสม</li>
+    <li>ใช้แปลง "จำนวนคนในห้องรอ" ↔ "นาทีที่ต้องรอ" ได้ทั้งสองทาง</li>
+    <li>ใช้ออกแบบพื้นที่รอ (แต่ต้องใช้ p90 ไม่ใช่ค่าเฉลี่ย) และใช้ตรวจความสมเหตุสมผลของข้อมูล</li>
+    <li>มันบอกแค่ค่าเฉลี่ย ไม่ได้บอกว่าทำไม — บทต่อไปจะตอบว่า <em>อะไร</em> ทำให้ W ยาว</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var T = 240;   // นาทีที่จำลอง
+
+  function run() {
+    var c = Site.v('cc'), lam = Site.v('ll'), es = Site.v('ss'), seed = Site.v('sd');
+    Site.show('cc', c + ' โต๊ะ');
+    Site.show('ll', lam.toFixed(2) + ' ราย/นาที');
+    Site.show('ss', es.toFixed(1) + ' นาที');
+    Site.show('sd', '#' + seed);
+
+    var sim = new DES.Sim({
+      stations: [{ id: 'S', name: 'จุดบริการ', serviceMean: es, scv: 1.0, servers: c }],
+      routes: [{ from: 'ARRIVAL', to: 'S', p: 1 }, { from: 'S', to: 'EXIT', p: 1 }],
+      arrivalRate: function () { return lam; }, lamMax: lam,
+      tStart: 0, tEnd: T, seed: seed * 101,
+    });
+    sim.runAll();
+
+    /* เส้นสะสม */
+    var arr = sim.entities.map(function (e) { return e.t0; }).sort(function (a, b) { return a - b; });
+    var dep = sim.finished.map(function (e) { return e.tEnd; }).sort(function (a, b) { return a - b; });
+    function cumul(ts) {
+      var p = [[0, 0]];
+      ts.forEach(function (t, i) { p.push([t, i]); p.push([t, i + 1]); });
+      p.push([T, ts.length]);
+      return p;
+    }
+    var A = cumul(arr), D = cumul(dep);
+
+    /* พื้นที่ระหว่างเส้น = ผลรวมเวลาในระบบ */
+    var area = 0;
+    sim.finished.forEach(function (e) { area += e.tat; });
+    var stillIn = sim.entities.length - sim.finished.length;
+    var L = area / T;
+    var W = sim.finished.length ? area / sim.finished.length : 0;
+    var lamObs = sim.finished.length / T;
+    var LW = lamObs * W;
+
+    document.getElementById('vL').textContent = L.toFixed(2);
+    document.getElementById('vLW').textContent = LW.toFixed(2);
+    document.getElementById('vDiff').textContent = Math.abs(L - LW).toFixed(3);
+
+    var band = [];
+    Chart.mount('chartLL', Chart.lineChart({
+      width: 640, height: 280, x0: 0, x1: T, y0: 0,
+      y1: Math.max(arr.length, 5) * 1.05,
+      xlabel: 'นาที', ylabel: 'จำนวนสะสม (ราย)',
+      between: { a: A, b: D, color: 'var(--s1)', opacity: .20 },
+      series: [
+        { points: A, color: 'var(--s1)', width: 2 },
+        { points: D, color: 'var(--s3)', width: 2 },
+      ],
+      bands: band,
+      label: 'เส้นมาถึงสะสมกับเส้นออกสะสม',
+    }));
+
+    /* ข้อความอธิบายใต้กราฟ */
+    var note = document.getElementById('llnote');
+    if (note) note.textContent = 'คนที่ยังอยู่ในระบบตอนปิด: ' + stillIn + ' ราย';
+  }
+  Site.bind(['cc', 'll', 'ss', 'sd'], run);
+  document.addEventListener('themechange', run);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 1 — ศัพท์และสัญกรณ์พื้นฐานของทฤษฎีคิว</title>
+<meta name="description" content="λ μ c ρ, offered load, Kendall notation, เงื่อนไขเสถียร, PASTA — พร้อมคำนวณกับหน่วยบริการจริงทั้ง 8 หน่วยของ FlowLens">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/01-basics.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 1</p>
+  <h1>ศัพท์และสัญกรณ์พื้นฐาน</h1>
+  <p class="lede">
+    ทฤษฎีคิวทั้งหมดสร้างจากตัวแปรไม่กี่ตัว ถ้าเข้าใจห้าตัวนี้ — λ, μ, c, ρ และ cv² —
+    สูตรที่เหลือในเว็บนี้เป็นเพียงการนำมาประกอบกันในรูปแบบต่าง ๆ
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="why">1. คิวเกิดจากอะไร</h2>
+
+<p>
+  คิวไม่ได้เกิดเพราะ "คนเยอะ" และไม่ได้เกิดเพราะ "คนทำงานช้า"
+  คิวเกิดเมื่อ <strong>งานมาถึงไม่ตรงจังหวะกับความสามารถในการระบายงาน</strong>
+  ถ้าผู้ป่วยมาถึงทุก 5 นาทีเป๊ะ และเจาะเลือดใช้เวลา 4 นาทีเป๊ะ
+  จะไม่มีคิวเลยแม้แต่คนเดียว ตลอดทั้งวัน แม้โต๊ะจะทำงานหนักถึง 80%
+</p>
+
+<p>
+  แต่ในโลกจริงไม่มีอะไรเป๊ะ ผู้ป่วยมาเป็นกลุ่ม บางคนเส้นหายาก
+  บางคนต้องเจาะซ้ำ พยาบาลต้องตอบโทรศัพท์ สองสิ่งนี้ —
+  <strong>ความผันแปรของการมาถึง</strong> และ <strong>ความผันแปรของเวลาบริการ</strong> —
+  คือต้นกำเนิดของคิวทั้งหมด ทฤษฎีคิวคือคณิตศาสตร์ที่แปลงความผันแปรนั้นเป็นตัวเลข "นาทีที่ต้องรอ"
+</p>
+
+<div class="cards">
+  <div class="card">
+    <p class="boxtitle">องค์ประกอบที่ 1</p>
+    <strong>กระบวนการมาถึง (arrival process)</strong>
+    <p style="margin:.4em 0 0"><small>คนมาเมื่อไร ห่างกันแค่ไหน สม่ำเสมอหรือเป็นกลุ่ม
+    ในระบบบริการส่วนใหญ่ใช้ Poisson เป็นค่าเริ่มต้น</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">องค์ประกอบที่ 2</p>
+    <strong>กระบวนการบริการ (service process)</strong>
+    <p style="margin:.4em 0 0"><small>ใช้เวลาต่อรายเท่าไร กระจายตัวอย่างไร
+    มีกี่โต๊ะ/เครื่องทำขนานกัน</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">องค์ประกอบที่ 3</p>
+    <strong>วินัยคิว (queue discipline)</strong>
+    <p style="margin:.4em 0 0"><small>ใครได้ก่อน — มาก่อนได้ก่อน (FIFO),
+    เคสด่วนแซง (priority), มีที่นั่งจำกัดไหม</small></p>
+  </div>
+</div>
+
+<h2 id="vars">2. ตัวแปรห้าตัวที่ต้องจำ</h2>
+
+<div class="symbols">
+  <div><span class="sym">λ (lambda)</span><span><strong>อัตราการมาถึง</strong> — กี่รายต่อหน่วยเวลา
+    เช่น 1.73 ราย/นาที ที่จุดเจาะเลือดช่วงพีค</span></div>
+  <div><span class="sym">E[S]</span><span><strong>เวลาบริการเฉลี่ย</strong> ต่อหนึ่งราย
+    เช่น 4.2 นาที/ราย</span></div>
+  <div><span class="sym">μ (mu)</span><span><strong>อัตราการบริการของหนึ่งโต๊ะ</strong> = 1/E[S]
+    เช่น 1/4.2 = 0.238 ราย/นาที/โต๊ะ</span></div>
+  <div><span class="sym">c</span><span><strong>จำนวนโต๊ะ/เครื่องที่ทำงานขนานกัน</strong>
+    (servers) เช่น 7 โต๊ะ</span></div>
+  <div><span class="sym">ρ (rho)</span><span><strong>การใช้กำลัง (utilization)</strong>
+    = λ·E[S]/c = λ/(cμ) — สัดส่วนเวลาที่โต๊ะหนึ่งไม่ว่าง</span></div>
+  <div><span class="sym">cv²</span><span><strong>ความผันแปรสัมพัทธ์ยกกำลังสอง</strong>
+    = (ส่วนเบี่ยงเบนมาตรฐาน/ค่าเฉลี่ย)² ใช้ <code>ca²</code> สำหรับการมาถึง
+    และ <code>cs²</code> สำหรับเวลาบริการ</span></div>
+</div>
+
+<p>ผลลัพธ์ที่เราอยากรู้มีสี่ตัว:</p>
+
+<div class="symbols">
+  <div><span class="sym">Wq</span><span>เวลา<strong>รอในคิว</strong>เฉลี่ย (ยังไม่รวมเวลาบริการ)</span></div>
+  <div><span class="sym">W</span><span>เวลาอยู่ในระบบเฉลี่ย = Wq + E[S]</span></div>
+  <div><span class="sym">Lq</span><span>จำนวนคน<strong>ที่รออยู่ในคิว</strong>เฉลี่ย</span></div>
+  <div><span class="sym">L</span><span>จำนวนคนในระบบเฉลี่ย = Lq + (คนกำลังรับบริการ)</span></div>
+</div>
+
+<h3>offered load — ตัวเลขที่ใช้บอก "ต้องมีกี่โต๊ะเป็นอย่างน้อย"</h3>
+
+<div class="formula">
+  $$a \;=\; \lambda \cdot E[S] \;=\; \frac{\lambda}{\mu}
+  \qquad\qquad \rho \;=\; \frac{a}{c}$$
+  <div class="caption">a คือ "ปริมาณงานที่ไหลเข้ามา" มีหน่วยเป็น erlang —
+    แปลว่าต้องใช้โต๊ะกี่ตัวทำงานเต็มเวลาจึงจะรับไหวพอดี</div>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 1.1 — จุดเจาะเลือดช่วงพีค</header>
+  <div class="body">
+    <div class="calc">
+<span class="cm">// ข้อมูลจริงจาก FlowLens demo_basic</span>
+λ    = 1.732 ราย/นาที      <span class="cm">(เฉลี่ย 06:30–09:00)</span>
+E[S] = 4.2 นาที/ราย        <span class="cm">(เวลาเจาะเลือดเฉลี่ย)</span>
+μ    = 1 / 4.2 = 0.2381 ราย/นาที/โต๊ะ
+
+a    = λ × E[S] = 1.732 × 4.2 = <span class="hl">7.27 erlang</span>
+       <span class="cm">→ ต้องมีอย่างน้อย 8 โต๊ะ ถึงจะ "ไม่ขาดทุน" เชิงกำลัง</span>
+
+ρ(7 โต๊ะ)  = 7.27 / 7  = <span class="hl">1.039</span>   ← ของจริงที่เปิด
+ρ(11 โต๊ะ) = 7.27 / 11 = <span class="hl">0.661</span>   ← ที่ config ประกาศ
+    </div>
+    <p style="margin-bottom:0">
+      ตัวเลข 7.27 erlang คือหัวใจ: <strong>งานที่ไหลเข้ามาต้องการโต๊ะเต็มเวลา 7.27 ตัว</strong>
+      เมื่อเปิดเพียง 7 ตัว ระบบรับไม่ไหวตั้งแต่ต้น ไม่ว่าพยาบาลจะเก่งแค่ไหน
+      คิวจะยาวขึ้นเรื่อย ๆ จนกว่าคนจะหยุดมา
+    </p>
+  </div>
+</div>
+
+<h2 id="rho">3. ρ บอกอะไร และไม่บอกอะไร</h2>
+
+<p>
+  ρ คือสัดส่วนเวลาที่โต๊ะหนึ่งตัวไม่ว่าง ถ้า ρ = 0.66 หมายความว่าโดยเฉลี่ย
+  โต๊ะทำงาน 40 นาทีในทุก ๆ ชั่วโมง และว่าง 20 นาที
+</p>
+
+<div class="warnbox">
+  <p class="boxtitle">กับดักที่พบบ่อยที่สุด</p>
+  <p style="margin-bottom:0">
+    <strong>ρ เฉลี่ยทั้งวันไม่มีความหมาย</strong> จุดเจาะเลือดของกรณีศึกษานี้มี
+    ρ เฉลี่ยทั้งวันเพียง <strong>0.44</strong> ซึ่งดู "ว่างมาก"
+    แต่ ρ ช่วง 07:00–09:00 เท่ากับ <strong>1.00</strong> เต็ม
+    คนไข้ที่มาตอนเช้าจึงรอ p90 ถึง 66 นาที ขณะที่คนที่มาบ่ายแทบไม่ต้องรอ
+    ทุกการวิเคราะห์คอขวดต้องทำ <strong>รายช่วงเวลา</strong> เสมอ
+    (FlowLens แบ่งเป็นช่วงละ 15 นาที)
+  </p>
+</div>
+
+<figure>
+  <div id="rhoByHour"></div>
+  <figcaption>ρ รายชั่วโมงของแต่ละหน่วย จากข้อมูลจริง — เส้นประคือเพดาน 0.85 ที่ config ตั้งไว้
+    สังเกตว่าทุกหน่วยตกลงหลัง 10:00 แต่ช่วง 07:00–09:00 มีสามหน่วยชนเพดาน</figcaption>
+</figure>
+<div id="rhoLegend"></div>
+
+<h3>ความหมายของ ρ ที่ค่าต่าง ๆ</h3>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ช่วง ρ</th><th>สภาพระบบ</th><th>สิ่งที่สังเกตได้หน้างาน</th></tr></thead>
+  <tbody>
+    <tr><th>&lt; 0.50</th><td>ว่างมาก</td><td>เกือบไม่มีคิว แต่อาจเปิดโต๊ะเกินจำเป็น (เปลืองคน)</td></tr>
+    <tr><th>0.50 – 0.80</th><td>ทำงานสบาย</td><td>มีคิวสั้น ๆ เป็นครั้งคราว รับความผันผวนได้</td></tr>
+    <tr><th>0.80 – 0.90</th><td><span class="pill warn">เริ่มอันตราย</span></td><td>คิวโตเร็วมากเมื่อมีอะไรผิดแผน เวลารอไม่เสถียรระหว่างวัน</td></tr>
+    <tr class="is-flag"><th>0.90 – 0.99</th><td><span class="pill bad">วิกฤต</span></td><td>คิวยาวทุกวัน งานเล็กน้อยที่สะดุดทำให้พังทั้งเช้า</td></tr>
+    <tr class="is-flag"><th>≥ 1.00</th><td><span class="pill bad">ไม่มีสมดุล</span></td><td>คิวโตขึ้นเรื่อย ๆ ไม่มีจุดอิ่มตัว ต้องรอให้คนหยุดมาเท่านั้น</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  FlowLens ตั้งค่า <code>targets.max_utilization = 0.85</code> เป็นเกณฑ์เตือน
+  ทุกหน่วยที่ ρ ช่วงพีคเกินค่านี้จะถูกติดป้ายสาเหตุ <strong>"กำลังไม่พอ"</strong> อัตโนมัติ
+  (ดู <a href="07-bottleneck.html">บทที่ 7</a>)
+</p>
+
+<h2 id="stability">4. เงื่อนไขเสถียร: ทำไม ρ ≥ 1 จึงเป็นหายนะ</h2>
+
+<div class="formula">
+  $$\rho = \frac{\lambda\,E[S]}{c} < 1
+  \qquad\Longleftrightarrow\qquad \lambda < c\mu$$
+  <div class="caption">ถ้าไม่เป็นจริง ระบบไม่มีสถานะคงตัว (steady state) และสูตรคิวทุกสูตรให้ค่า ∞</div>
+</div>
+
+<p>
+  เมื่อ ρ ≥ 1 งานเข้ามาเร็วกว่าที่ระบายออกได้ คิวจะยาวขึ้น
+  <strong>เป็นเส้นตรงตามเวลา</strong> ด้วยอัตรา (λ − cμ) ราย/นาที
+  ซึ่งไม่ใช่ปัญหาเชิงคิวอีกต่อไป แต่เป็นปัญหาเชิงกำลังการผลิตล้วน ๆ
+</p>
+
+<div class="example">
+  <header>ตัวอย่างที่ 1.2 — คิวโตเร็วแค่ไหนเมื่อ ρ &gt; 1</header>
+  <div class="body">
+    <div class="calc">
+λ  = 1.732 ราย/นาที
+cμ = 7 × (1/4.2) = 1.667 ราย/นาที
+
+อัตราคิวโต = λ − cμ = 1.732 − 1.667 = <span class="hl">0.065 ราย/นาที</span>
+
+ช่วงพีค 06:30–09:00 ยาว 150 นาที
+คิวสะสมเมื่อจบช่วง ≈ 0.065 × 150 = <span class="hl">10 ราย</span>
+    </div>
+    <p>
+      ดูเหมือนน้อย แต่ตัวเลขนี้คิดจาก λ เฉลี่ยทั้งช่วง ของจริงครึ่งชั่วโมงแรก
+      λ พุ่งถึง 2.81 ราย/นาที ทำให้อัตราคิวโตเป็น 2.81 − 1.667 = 1.14 ราย/นาที
+      นั่นคือ <strong>สะสม 34 คนภายใน 30 นาทีแรก</strong> และข้อมูลจริงบันทึกคิวสูงสุดไว้ที่
+      <strong>140 ราย</strong>
+    </p>
+    <p style="margin-bottom:0">
+      นี่คือบทเรียนสำคัญ: เมื่อ ρ เกิน 1 <em>แม้เพียงชั่วคราว</em>
+      ความเสียหายไม่หายไปเองเมื่อ ρ กลับมาต่ำ — คิวที่สะสมไว้ต้องใช้เวลาระบาย
+      (ดูรายละเอียดใน <a href="09-nonstationary.html">บทที่ 9</a>)
+    </p>
+  </div>
+</div>
+
+<h2 id="kendall">5. สัญกรณ์ Kendall — วิธีเรียกชื่อระบบคิว</h2>
+
+<p>ระบบคิวถูกตั้งชื่อด้วยรูปแบบ <code>A/B/c/K/N/D</code> โดยสามตัวแรกใช้บ่อยที่สุด</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th style="width:62px">ตำแหน่ง</th><th>ความหมาย</th><th>ค่าที่พบบ่อย</th></tr></thead>
+  <tbody>
+    <tr><th><code>A</code></th><td>การแจกแจงของ<strong>ระยะห่างเวลามาถึง</strong></td>
+      <td><code>M</code> = Markov/exponential (Poisson arrivals) · <code>D</code> = คงที่ ·
+          <code>G</code> = อะไรก็ได้</td></tr>
+    <tr><th><code>B</code></th><td>การแจกแจงของ<strong>เวลาบริการ</strong></td>
+      <td><code>M</code>, <code>D</code>, <code>G</code>, <code>E<sub>k</sub></code> = Erlang-k</td></tr>
+    <tr><th><code>c</code></th><td>จำนวนโต๊ะขนานกัน</td><td>1, 7, 20, ∞</td></tr>
+    <tr><th><code>K</code></th><td>ความจุระบบ (รวมคนที่กำลังรับบริการ)</td><td>∞ ถ้าไม่ระบุ</td></tr>
+    <tr><th><code>N</code></th><td>ขนาดประชากรที่มาใช้บริการ</td><td>∞ ถ้าไม่ระบุ</td></tr>
+    <tr><th><code>D</code></th><td>วินัยคิว</td><td>FIFO (ค่าเริ่มต้น), LIFO, priority, processor sharing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="tip">
+  <p class="boxtitle">อ่านชื่อระบบของ FlowLens</p>
+  <ul style="margin-bottom:0">
+    <li><code>M/M/7</code> — สมมติให้ทั้งการมาถึงและเวลาบริการเป็น exponential ที่จุดเจาะเลือด 7 โต๊ะ
+      ใช้สำหรับคำนวณเร็ว ๆ ด้วย Erlang-C</li>
+    <li><code>M/G/7</code> หรือ <code>G/G/7</code> — ใกล้ความจริงกว่า เพราะเวลาเจาะเลือดจริงเป็น
+      lognormal ที่ cv = 0.45 (cs² = 0.20) ไม่ใช่ exponential ที่ cs² = 1
+      <strong>นี่คือระบบที่ FlowLens ใช้จริง</strong> ผ่านสูตร Sakasegawa
+      (<a href="05-ggc.html">บทที่ 5</a>)</li>
+    <li><code>M/G/∞</code> — หน่วยขนส่งสิ่งส่งตรวจ ไม่มีคิวเพราะส่งได้ต่อเนื่อง
+      มีแต่เวลาเดินทาง 4 นาที</li>
+  </ul>
+</div>
+
+<h2 id="pasta">6. PASTA — ทำไม Poisson จึงเป็นค่าเริ่มต้น</h2>
+
+<p>
+  <strong>PASTA</strong> (Poisson Arrivals See Time Averages) คือทฤษฎีบทที่บอกว่า
+  ถ้าคนมาถึงแบบ Poisson สิ่งที่ "คนที่เพิ่งมาถึง" เห็น
+  จะเหมือนกับค่าเฉลี่ยของระบบที่มองจากภายนอกตลอดเวลาพอดี
+</p>
+
+<p>
+  ฟังดูเป็นเรื่องเทคนิค แต่มีผลใหญ่มาก: มันทำให้เราใช้ค่าเฉลี่ยของระบบ
+  มาตอบคำถาม "คนที่เดินเข้ามาตอนนี้จะรอกี่นาที" ได้โดยตรง
+  สูตร Erlang-C ทั้งหมดตั้งอยู่บนข้อนี้
+</p>
+
+<p>
+  กระบวนการ Poisson คือสิ่งที่เกิดเมื่อ <strong>คนจำนวนมากตัดสินใจมาอย่างอิสระต่อกัน</strong>
+  ซึ่งตรงกับผู้ป่วยนอกพอดี จึงเป็นสมมติฐานเริ่มต้นที่สมเหตุสมผล
+  คุณสมบัติของมันคือ ระยะห่างเวลามาถึงเป็น exponential และ
+  <strong>ca² = 1</strong> เสมอ
+</p>
+
+<div class="warnbox">
+  <p class="boxtitle">แต่ของจริงมักไม่ใช่ Poisson เป๊ะ</p>
+  <p style="margin-bottom:0">
+    ผู้ป่วยอดอาหารมาตรวจเลือดจะมา<strong>พร้อมกันเป็นกลุ่มตอนเช้า</strong>
+    ทำให้ ca² สูงกว่า 1 ส่วนระบบนัดหมายที่คุมได้ดีจะมี ca² ต่ำกว่า 1
+    FlowLens จึงไม่สมมติ ca² = 1 แต่<strong>วัดจากข้อมูลจริง</strong> รายช่วงเวลา
+    ด้วยฟังก์ชัน <code>interarrival_scv()</code> แล้วส่งค่าที่วัดได้เข้าสูตร G/G/c
+  </p>
+</div>
+
+<h2 id="table">7. คำนวณกับหน่วยจริงทั้ง 8 หน่วย</h2>
+
+<p>
+  ตารางนี้คำนวณสด: เลือกช่วงเวลา แล้วดูว่าแต่ละหน่วยได้รับ λ เท่าไร
+  (กระจายตามความน่าจะเป็นของเส้นทาง) มีกี่โต๊ะ และ ρ เท่าไร
+  คอลัมน์สุดท้ายคือ ρ ที่วัดได้จริงจากข้อมูล ไว้เทียบว่าการคำนวณใกล้เคียงแค่ไหน
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 1.1 — ตารางกำลังรายหน่วย</span>
+    <span class="hint">เลื่อนเวลาแล้วดู ρ เปลี่ยน</span>
+  </header>
+  <div class="body">
+    <div class="ctrl" style="max-width:420px">
+      <label for="tsel"><span>ช่วงเวลา</span><span class="val" id="tselV"></span></label>
+      <input type="range" id="tsel" min="390" max="960" step="30" value="420">
+      <div class="sub">เลื่อนจาก 06:30 ถึง 16:00 — ช่วงพีคคือ 06:30–09:00</div>
+    </div>
+    <div class="switch" style="margin-bottom:12px">
+      <input type="checkbox" id="useCfg"><label for="useCfg">ใช้จำนวนโต๊ะตาม config (11 โต๊ะที่จุดเจาะ) แทนที่เปิดจริง (7 โต๊ะ)</label>
+    </div>
+    <div class="tablewrap" style="margin-top:4px">
+      <table id="utab">
+        <thead><tr>
+          <th>หน่วย</th><th class="num">λ<br><small>ราย/นาที</small></th>
+          <th class="num">E[S]<br><small>นาที</small></th>
+          <th class="num">a = λE[S]<br><small>erlang</small></th>
+          <th class="num">c<br><small>โต๊ะ</small></th>
+          <th class="num">ρ</th><th style="width:96px">สถานะ</th>
+          <th class="num">ρ จริง<br><small>ช่วงพีค</small></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p style="font-size:.86rem;color:var(--ink-faint);margin:10px 0 0">
+      λ ของหน่วยปลายน้ำคำนวณจากสมดุลการไหล (<a href="06-network.html">บทที่ 6</a>)
+      เช่น เครื่องเคมีคลินิกได้ 62% ของงานทั้งหมด ส่วนเครื่องโลหิตวิทยาได้ 38%
+      ค่า "ρ จริง" มาจาก <code>answer_key.json</code> ซึ่งเป็น ρ ของชั่วโมงที่หนักที่สุดของหน่วยนั้น
+    </p>
+  </div>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 1</h4>
+  <ul>
+    <li>คิวเกิดจาก <strong>ความผันแปร</strong> ไม่ใช่แค่ปริมาณงาน</li>
+    <li><strong>a = λE[S]</strong> บอกจำนวนโต๊ะขั้นต่ำที่ต้องมี · <strong>ρ = a/c</strong> บอกว่าเหลือที่ว่างแค่ไหน</li>
+    <li>ρ ต้อง <strong>&lt; 1</strong> เสมอ ไม่งั้นไม่มีคำตอบ — และต้องคำนวณ <strong>รายช่วงเวลา</strong> ไม่ใช่เฉลี่ยทั้งวัน</li>
+    <li>ρ เฉลี่ยทั้งวันของจุดเจาะเลือด = 0.44 (ดูดี) แต่ ρ ช่วงพีค = 1.00 (พัง) — นี่คือกับดักที่ทำให้มองไม่เห็นคอขวด</li>
+    <li>Kendall notation บอกสมมติฐานที่ใช้ — <code>M/M/c</code> คำนวณง่าย <code>G/G/c</code> ใกล้ความจริง</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- กราฟ ρ รายชั่วโมง ---------- */
+  var show = ['PHLEB', 'VERIFY', 'REG', 'CHEM', 'HEMA', 'RECEIVE', 'RESULT'];
+  function drawRho() {
+    var series = show.map(function (id, i) {
+      var u = FL.byId[id];
+      var pts = Object.keys(u.rhoByHour).map(Number).sort(function (a, b) { return a - b; })
+        .map(function (h) { return [h, u.rhoByHour[h]]; });
+      return { name: u.short, points: pts, color: Chart.SERIES[i % 8],
+               width: id === 'PHLEB' ? 2.8 : 1.8, dots: id === 'PHLEB' ? 3 : false };
+    });
+    Chart.mount('rhoByHour', Chart.lineChart({
+      width: 700, height: 290, x0: 6, x1: 16, y0: 0, y1: 1.1, nx: 11, ny: 5,
+      xlabel: 'ชั่วโมงของวัน', ylabel: 'ρ', series: series,
+      xfmt: function (v) { return String(Math.round(v)) + ':00'; },
+      yfmt: function (v) { return v.toFixed(2); },
+      rules: [{ y: 0.85, color: 'var(--warn)', label: 'เพดาน 0.85' },
+              { y: 1.0, color: 'var(--bad)', label: 'ρ = 1' }],
+      bands: [{ from: 6.5, to: 9, label: 'ช่วงพีค' }],
+      label: 'ρ รายชั่วโมงของแต่ละหน่วย',
+    }));
+    Chart.mount('rhoLegend', Chart.legend(show.map(function (id, i) {
+      return { name: FL.byId[id].short, color: Chart.SERIES[i % 8] };
+    })));
+  }
+  drawRho();
+  document.addEventListener('themechange', drawRho);
+
+  /* ---------- ตารางกำลังรายหน่วย ---------- */
+  function utab() {
+    var t = Site.v('tsel');
+    var useCfg = document.getElementById('useCfg').checked;
+    Site.show('tsel', Q.fmt.clock(t) + '–' + Q.fmt.clock(t + 30));
+
+    var lams = FL.unitLambdaAt(t + 1, 0);
+    var rows = '';
+    FL.units.forEach(function (u) {
+      var lam = lams[u.id] || 0;
+      var c = FL.serversAt(u, t + 1, useCfg);
+      var a = lam * u.serviceMean;
+      var r = u.type === 'transport' ? NaN : (c > 0 ? a / c : Infinity);
+      var cls = !Number.isFinite(r) ? '' : r >= 1 ? 'is-flag' : '';
+      var badge = u.type === 'transport' ? '<span class="pill">ไม่มีคิว</span>'
+        : r >= 1 ? '<span class="pill bad">ไม่มีสมดุล</span>'
+        : r > 0.85 ? '<span class="pill warn">เกินเกณฑ์</span>'
+        : r > 0.6 ? '<span class="pill">ปกติ</span>'
+        : '<span class="pill ok">ว่าง</span>';
+      rows += '<tr class="' + cls + '"><th>' + u.name +
+        ' <small style="color:var(--ink-faint)">' + u.id + '</small></th>' +
+        '<td class="num">' + lam.toFixed(3) + '</td>' +
+        '<td class="num">' + u.serviceMean.toFixed(1) + '</td>' +
+        '<td class="num">' + a.toFixed(2) + '</td>' +
+        '<td class="num">' + (u.type === 'transport' ? '∞' : c) + '</td>' +
+        '<td class="num"><strong>' + (Number.isFinite(r) ? r.toFixed(3) : '—') + '</strong></td>' +
+        '<td>' + badge + '</td>' +
+        '<td class="num">' + (Number.isFinite(u.truth.rhoPeak) ? u.truth.rhoPeak.toFixed(2) : '—') + '</td></tr>';
+    });
+    document.querySelector('#utab tbody').innerHTML = rows;
+  }
+  Site.bind(['tsel', 'useCfg'], utab);
+})();
+</script>
+</body>
+</html>

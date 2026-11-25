@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องทดลอง — วางแผนโต๊ะรายช่วงเวลา</title>
+<meta name="description" content="วางแผนจำนวนโต๊ะรายช่วง 30 นาทีจากเป้าเวลารอ ดูผลต่อ ρ เวลารอ p90 และค่าใช้จ่าย พร้อมแปลงเป็นตารางกะที่ใช้ได้จริง">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<style>
+  .stepper { display: inline-flex; align-items: center; gap: 4px; }
+  .stepper button {
+    width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line);
+    background: var(--bg-elev); color: var(--ink); cursor: pointer; font-size: .82rem;
+    line-height: 1; padding: 0;
+  }
+  .stepper button:hover { border-color: var(--accent); color: var(--accent); }
+  .stepper .n { font-family: var(--mono); min-width: 22px; text-align: center;
+                font-weight: 600; font-variant-numeric: tabular-nums; }
+  .shiftbox { font-family: var(--mono); font-size: .86rem; line-height: 2; }
+</style>
+</head>
+<body data-page="sim/staffing.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">ห้องทดลอง</p>
+  <h1>วางแผนโต๊ะรายช่วงเวลา</h1>
+  <p class="lede">
+    ตั้งเป้า แล้วระบบคำนวณให้ว่าแต่ละช่วง 30 นาทีควรเปิดกี่โต๊ะ
+    หรือจะปรับเองทีละช่วงก็ได้ — เห็นผลต่อเวลารอและค่าใช้จ่ายทันที
+    แล้วแปลงเป็นตารางกะที่เอาไปใช้ได้จริง
+  </p>
+</div>
+
+<div class="lab" style="margin-top:0">
+  <header>
+    <span class="ttl">ตั้งค่า</span>
+    <span class="hint">กดปุ่ม "ใช้ค่าที่คำนวณได้" เพื่อเติมแผนอัตโนมัติ</span>
+  </header>
+  <div class="body">
+    <div class="grid g3" style="margin:0 0 14px">
+      <div class="ctrl" style="margin:0">
+        <label for="unit"><span>หน่วยบริการ</span><span class="val"></span></label>
+        <select id="unit" style="width:100%"></select>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="tgt"><span>เป้า: p90 รอไม่เกิน</span><span class="val" id="tgtV"></span></label>
+        <input type="range" id="tgt" min="2" max="45" step="1" value="15">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="rmax"><span>เพดาน ρ</span><span class="val" id="rmaxV"></span></label>
+        <input type="range" id="rmax" min="0.6" max="0.98" step="0.01" value="0.85">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="dem"><span>ปริมาณผู้ป่วย</span><span class="val" id="demV"></span></label>
+        <input type="range" id="dem" min="0.6" max="1.6" step="0.05" value="1">
+        <div class="sub">เผื่อวันที่คนมากกว่าปกติ</div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="rw"><span>อัตราเจาะซ้ำ</span><span class="val" id="rwV"></span></label>
+        <input type="range" id="rw" min="0" max="0.2" step="0.01" value="0">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label class="lbl"><span>ต้นทุนหน่วยนี้</span><span class="val" id="costV"></span></label>
+        <div class="sub">จาก <code>cost_per_server_hour</code> ใน config</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="applyCalc">ใช้ค่าที่คำนวณได้</button>
+      <button class="btn" id="applyReal">กลับไปที่เปิดจริง</button>
+      <button class="btn" id="flat">เปิดเท่ากันทั้งวัน</button>
+    </div>
+    <div id="summary"></div>
+  </div>
+</div>
+
+<h2 id="plan">ตารางรายช่วง 30 นาที</h2>
+
+<div class="tablewrap">
+  <table id="tab">
+    <thead><tr>
+      <th>ช่วงเวลา</th><th class="num">λ<br><small>ราย/นาที</small></th>
+      <th class="num">เปิดจริง</th><th class="num">ควรเปิด</th>
+      <th style="width:110px">แผนของคุณ</th>
+      <th class="num">ρ</th><th class="num">รอเฉลี่ย</th><th class="num">รอ p90</th>
+      <th class="num">บาท/ช่วง</th><th>สถานะ</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  <caption>"ควรเปิด" = ค่าที่มากกว่าระหว่างเกณฑ์ ρ กับเกณฑ์เป้าเวลารอ ·
+    กด + / − เพื่อปรับแผนของคุณเอง</caption>
+</div>
+
+<figure>
+  <div id="chart"></div>
+  <figcaption>เปรียบเทียบจำนวนโต๊ะตลอดวัน — แท่งเทาคือที่เปิดจริง
+    แท่งน้ำเงินคือที่ควรเปิด แท่งเขียวคือแผนของคุณ</figcaption>
+</figure>
+<div id="legend"></div>
+
+<h2 id="shift">แปลงเป็นตารางกะ</h2>
+
+<p>
+  ตารางรายช่วง 30 นาทีเอาไปจัดเวรจริงไม่ได้ ต้องรวมเป็นช่วงยาว ๆ ก่อน
+  ส่วนนี้รวมช่วงที่ต้องการจำนวนเท่ากันเข้าด้วยกันแบบง่าย ๆ
+  (FlowLens ตัวจริงแก้เป็นปัญหา integer programming เพื่อหาชุดกะที่ถูกที่สุด)
+</p>
+
+<div class="card">
+  <div class="boxtitle">แผนกะจากตารางของคุณ</div>
+  <div class="shiftbox" id="shifts"></div>
+</div>
+
+<h2 id="all">ภาพรวมทุกหน่วย</h2>
+
+<p>ใช้เป้าและเพดานเดียวกันกับทุกหน่วย เพื่อดูว่าโรงพยาบาลขาดกำลังรวมเท่าไร</p>
+
+<div class="tablewrap">
+  <table id="alltab">
+    <thead><tr><th>หน่วย</th><th class="num">โต๊ะ-ชม. ที่เปิด</th>
+      <th class="num">โต๊ะ-ชม. ที่ควรเปิด</th><th class="num">ส่วนต่าง</th>
+      <th class="num">บาท/วัน</th><th class="num">บาท/เดือน</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <caption>เดือนละ 20 วันทำการ</caption>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var SERVICE = FL.units.filter(function (u) { return u.type !== 'transport'; });
+  var BIN = 30;
+  var plan = {};          // {binStart: servers}
+  var bins = [];
+
+  document.getElementById('unit').innerHTML = SERVICE.map(function (u) {
+    return '<option value="' + u.id + '"' + (u.id === 'PHLEB' ? ' selected' : '') + '>' +
+      u.name + '</option>';
+  }).join('');
+
+  function cfg() {
+    var u = FL.byId[document.getElementById('unit').value];
+    var o = { u: u, tgt: Site.v('tgt'), rmax: Site.v('rmax'),
+              dem: Site.v('dem'), rw: Site.v('rw') };
+    Site.show('tgt', o.tgt + ' นาที');
+    Site.show('rmax', o.rmax.toFixed(2));
+    Site.show('dem', (o.dem * 100).toFixed(0) + '%');
+    Site.show('rw', (o.rw * 100).toFixed(0) + '%');
+    document.getElementById('costV').textContent = Q.fmt.i(u.cost) + ' บาท/โต๊ะ/ชม.';
+    return o;
+  }
+
+  function computeBins(o) {
+    var out = [];
+    var cs2 = o.u.truth.serviceCv * o.u.truth.serviceCv;
+    for (var t = FL.project.openFrom - BIN; t < FL.project.openTo; t += BIN) {
+      var lams = FL.unitLambdaAt(t + 1, o.rw);
+      var lam = (lams[o.u.id] || 0) * o.dem;
+      if (lam <= 0) continue;
+      var real = FL.serversAt(o.u, t + 1);
+      var nRho = Q.minServersForRho(lam, o.u.serviceMean, o.rmax);
+      var nWait = Q.minServersForWait(lam, o.u.serviceMean, o.tgt,
+        { p: 0.9, ca2: 1, cs2: cs2 });
+      out.push({ t: t, lam: lam, real: real, need: Math.max(nRho, nWait),
+                 nRho: nRho, nWait: nWait, cs2: cs2 });
+    }
+    return out;
+  }
+
+  function evalBin(b, o, c) {
+    var rho = c > 0 ? (b.lam * o.u.serviceMean) / c : Infinity;
+    var wq = Q.wqGGc(b.lam, o.u.serviceMean, c, 1, b.cs2);
+    var p90 = Q.wqPercentile(b.lam, o.u.serviceMean, c, 0.9, 1, b.cs2);
+    return { rho: rho, wq: wq, p90: p90, cost: c * (BIN / 60) * o.u.cost };
+  }
+
+  function render() {
+    var o = cfg();
+    bins = computeBins(o);
+    bins.forEach(function (b) { if (plan[b.t] == null) plan[b.t] = b.real; });
+
+    var rows = '', totPlan = 0, totReal = 0, totNeed = 0, totCost = 0;
+    var worstP90 = 0, overTarget = 0;
+    bins.forEach(function (b) {
+      var c = plan[b.t];
+      var e = evalBin(b, o, c);
+      totPlan += c * (BIN / 60); totReal += b.real * (BIN / 60);
+      totNeed += b.need * (BIN / 60); totCost += e.cost;
+      if (Number.isFinite(e.p90)) worstP90 = Math.max(worstP90, e.p90);
+      else worstP90 = Infinity;
+      if (!Number.isFinite(e.p90) || e.p90 > o.tgt) overTarget++;
+
+      var cls = !Number.isFinite(e.rho) || e.rho >= 1 ? 'is-flag' : '';
+      rows += '<tr class="' + cls + '"><th>' + Q.fmt.clock(b.t) + '–' + Q.fmt.clock(b.t + BIN) + '</th>' +
+        '<td class="num">' + b.lam.toFixed(3) + '</td>' +
+        '<td class="num">' + b.real + '</td>' +
+        '<td class="num"><strong>' + b.need + '</strong></td>' +
+        '<td><span class="stepper"><button data-d="-1" data-t="' + b.t + '">−</button>' +
+        '<span class="n">' + c + '</span>' +
+        '<button data-d="1" data-t="' + b.t + '">+</button></span></td>' +
+        '<td class="num">' + (Number.isFinite(e.rho) ? e.rho.toFixed(2) : '∞') + '</td>' +
+        '<td class="num">' + (Number.isFinite(e.wq) ? e.wq.toFixed(1) : '∞') + '</td>' +
+        '<td class="num"><strong>' + (Number.isFinite(e.p90) ? e.p90.toFixed(1) : '∞') + '</strong></td>' +
+        '<td class="num">' + Q.fmt.i(e.cost) + '</td>' +
+        '<td>' + (!Number.isFinite(e.rho) || e.rho >= 1 ? '<span class="pill bad">ล้น</span>'
+          : !Number.isFinite(e.p90) || e.p90 > o.tgt ? '<span class="pill warn">เกินเป้า</span>'
+          : c > b.need ? '<span class="pill">เปิดเกิน</span>'
+          : '<span class="pill ok">ผ่าน</span>') + '</td></tr>';
+    });
+    document.querySelector('#tab tbody').innerHTML = rows;
+
+    document.querySelectorAll('.stepper button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var t = +btn.dataset.t;
+        plan[t] = Math.max(0, plan[t] + (+btn.dataset.d));
+        render();
+      });
+    });
+
+    /* สรุป */
+    var realCost = 0, needCost = 0;
+    bins.forEach(function (b) {
+      realCost += b.real * (BIN / 60) * o.u.cost;
+      needCost += b.need * (BIN / 60) * o.u.cost;
+    });
+    var diff = totCost - realCost;
+    document.getElementById('summary').innerHTML =
+      '<div class="stats" style="margin:16px 0 0;grid-template-columns:repeat(auto-fit,minmax(128px,1fr))">' +
+      '<div class="stat"><div class="k">แผนของคุณ</div><div class="v">' + totPlan.toFixed(1) +
+        '<span class="u">โต๊ะ-ชม.</span></div></div>' +
+      '<div class="stat"><div class="k">ที่เปิดจริง</div><div class="v">' + totReal.toFixed(1) +
+        '<span class="u">โต๊ะ-ชม.</span></div></div>' +
+      '<div class="stat"><div class="k">ที่ควรเปิด</div><div class="v">' + totNeed.toFixed(1) +
+        '<span class="u">โต๊ะ-ชม.</span></div></div>' +
+      '<div class="stat' + (diff > 0 ? ' is-warn' : diff < 0 ? ' is-ok' : '') + '">' +
+        '<div class="k">ค่าใช้จ่ายต่างจากเดิม</div><div class="v">' +
+        (diff > 0 ? '+' : '') + Q.fmt.i(diff) + '<span class="u">บ./วัน</span></div>' +
+        '<div class="d">' + (diff !== 0 ? Q.fmt.i(Math.abs(diff) * 20) + ' บ./เดือน' : 'เท่าเดิม') + '</div></div>' +
+      '<div class="stat' + (overTarget === 0 ? ' is-ok' : ' is-bad') + '">' +
+        '<div class="k">ช่วงที่ยังเกินเป้า</div><div class="v">' + overTarget +
+        '<span class="u">/ ' + bins.length + '</span></div></div>' +
+      '<div class="stat"><div class="k">รอ p90 แย่สุด</div><div class="v">' +
+        (Number.isFinite(worstP90) ? worstP90.toFixed(1) : '∞') + '<span class="u">น.</span></div></div>' +
+      '</div>' +
+      (overTarget === 0
+        ? '<div class="tip" style="margin:14px 0 0"><strong>แผนนี้ผ่านเป้าทุกช่วงเวลา</strong>' +
+          (diff > 0 ? ' โดยใช้เงินเพิ่ม ' + Q.fmt.i(diff) + ' บาท/วัน' : ' โดยไม่ใช้เงินเพิ่ม') + '</div>'
+        : '<div class="warnbox" style="margin:14px 0 0">ยังมี <strong>' + overTarget +
+          ' ช่วงเวลา</strong> ที่ผู้ป่วย 90% รอเกิน ' + o.tgt + ' นาที — ' +
+          'กดปุ่ม "ใช้ค่าที่คำนวณได้" เพื่อเติมให้ครบ</div>');
+
+    /* กราฟ */
+    Chart.mount('chart', Chart.barChart({
+      width: 760, height: 280, rotate: true,
+      labels: bins.map(function (b) { return Q.fmt.clock(b.t); }),
+      series: [
+        { name: 'เปิดจริง', values: bins.map(function (b) { return b.real; }), color: 'var(--s8)' },
+        { name: 'ควรเปิด', values: bins.map(function (b) { return b.need; }), color: 'var(--s1)' },
+        { name: 'แผนของคุณ', values: bins.map(function (b) { return plan[b.t]; }), color: 'var(--s3)' },
+      ],
+      ylabel: 'จำนวนโต๊ะ', margin: { t: 14, r: 16, b: 58, l: 46 },
+      label: 'เปรียบเทียบจำนวนโต๊ะตลอดวัน',
+    }));
+    Chart.mount('legend', Chart.legend([
+      { name: 'เปิดจริง', color: 'var(--s8)' },
+      { name: 'ควรเปิด', color: 'var(--s1)' },
+      { name: 'แผนของคุณ', color: 'var(--s3)' },
+    ]));
+
+    /* ตารางกะ */
+    var blocks = [], cur = null;
+    bins.forEach(function (b) {
+      var c = plan[b.t];
+      if (cur && cur.c === c && cur.to === b.t) { cur.to = b.t + BIN; }
+      else { cur = { from: b.t, to: b.t + BIN, c: c }; blocks.push(cur); }
+    });
+    document.getElementById('shifts').innerHTML = blocks.map(function (b) {
+      var hrs = (b.to - b.from) / 60;
+      return Q.fmt.clock(b.from) + ' – ' + Q.fmt.clock(b.to) +
+        '   <strong>' + b.c + ' โต๊ะ</strong>' +
+        '   <span style="color:var(--ink-faint)">(' + hrs.toFixed(1) + ' ชม. · ' +
+        Q.fmt.i(b.c * hrs * o.u.cost) + ' บาท)</span>';
+    }).join('<br>') +
+    '<br><br><strong>รวม ' + totPlan.toFixed(1) + ' โต๊ะ-ชั่วโมง · ' +
+    Q.fmt.i(totCost) + ' บาท/วัน</strong>';
+
+    allUnits(o);
+  }
+
+  function allUnits(o) {
+    var rows = '', tot = 0;
+    SERVICE.forEach(function (u) {
+      var cs2 = u.truth.serviceCv * u.truth.serviceCv;
+      var real = 0, need = 0;
+      for (var t = FL.project.openFrom - BIN; t < FL.project.openTo; t += BIN) {
+        var lams = FL.unitLambdaAt(t + 1, o.rw);
+        var lam = (lams[u.id] || 0) * o.dem;
+        if (lam <= 0) continue;
+        real += FL.serversAt(u, t + 1) * (BIN / 60);
+        need += Math.max(
+          Q.minServersForRho(lam, u.serviceMean, o.rmax),
+          Q.minServersForWait(lam, u.serviceMean, o.tgt, { p: 0.9, ca2: 1, cs2: cs2 })
+        ) * (BIN / 60);
+      }
+      var gap = need - real;
+      var cost = gap * u.cost;
+      if (gap > 0) tot += cost;      // รวมเฉพาะส่วนที่ต้องเติม
+      rows += '<tr class="' + (gap > 1 ? 'is-flag' : '') + '"><th>' + u.name + '</th>' +
+        '<td class="num">' + real.toFixed(1) + '</td>' +
+        '<td class="num">' + need.toFixed(1) + '</td>' +
+        '<td class="num"><strong>' + (gap > 0 ? '+' : '') + gap.toFixed(1) + '</strong></td>' +
+        '<td class="num">' + (gap > 0 ? Q.fmt.i(cost) : '—') + '</td>' +
+        '<td class="num">' + (gap > 0 ? Q.fmt.i(cost * 20) : '—') + '</td></tr>';
+    });
+    rows += '<tr><th>รวมทั้งโรงพยาบาล</th><td class="num"></td><td class="num"></td>' +
+      '<td class="num"></td><td class="num"><strong>' + Q.fmt.i(Math.max(tot, 0)) +
+      '</strong></td><td class="num"><strong>' + Q.fmt.i(Math.max(tot, 0) * 20) +
+      '</strong></td></tr>';
+    document.querySelector('#alltab tbody').innerHTML = rows;
+  }
+
+  document.getElementById('applyCalc').addEventListener('click', function () {
+    bins.forEach(function (b) { plan[b.t] = b.need; });
+    render();
+  });
+  document.getElementById('applyReal').addEventListener('click', function () {
+    bins.forEach(function (b) { plan[b.t] = b.real; });
+    render();
+  });
+  document.getElementById('flat').addEventListener('click', function () {
+    var mx = 0;
+    bins.forEach(function (b) { mx = Math.max(mx, b.need); });
+    bins.forEach(function (b) { plan[b.t] = mx; });
+    render();
+  });
+
+  Site.bind(['unit', 'tgt', 'rmax', 'dem', 'rw'], function () {
+    plan = {};
+    render();
+  });
+  document.addEventListener('themechange', render);
+})();
+</script>
+</body>
+</html>

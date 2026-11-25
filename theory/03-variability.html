@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 3 — ความผันแปร และสมการ VUT ของ Kingman</title>
+<meta name="description" content="cv² คืออะไร ทำไมความผันแปรสร้างคิวได้เองแม้กำลังพอ สมการ Kingman VUT และวิธีที่ FlowLens วัด ca² cs² จากข้อมูลจริง">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/03-variability.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 3</p>
+  <h1>ความผันแปร — ต้นกำเนิดที่แท้จริงของคิว</h1>
+  <p class="lede">
+    ถ้าทุกอย่างเป๊ะ จะไม่มีคิวแม้ ρ = 0.99 บทนี้อธิบายว่าความไม่แน่นอน
+    ถูกแปลงเป็น "นาทีที่ต้องรอ" ด้วยกลไกใด และวัดมันอย่างไรจากข้อมูลจริง
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="proof">1. บทพิสูจน์ที่ไม่ต้องใช้สูตร</h2>
+
+<p>
+  ลองคิดถึงจุดเจาะเลือดหนึ่งโต๊ะ ที่มีผู้ป่วย 12 คนต่อชั่วโมง และเจาะได้ 15 คนต่อชั่วโมง
+  นั่นคือ ρ = 0.8 — เหมือนกันทั้งสองกรณีข้างล่าง
+</p>
+
+<div class="grid g2">
+  <div class="card">
+    <p class="boxtitle" style="color:var(--ok)">กรณี ก — ทุกอย่างเป๊ะ (D/D/1)</p>
+    <p>ผู้ป่วยมาทุก 5 นาทีเป๊ะ เจาะใช้เวลา 4 นาทีเป๊ะ</p>
+    <div class="calc" style="font-size:.82rem;margin:.6em 0">06:30 มา → เจาะ 06:30–06:34 → ว่าง 1 นาที
+06:35 มา → เจาะ 06:35–06:39 → ว่าง 1 นาที
+06:40 มา → เจาะ 06:40–06:44 → ว่าง 1 นาที</div>
+    <p style="margin-bottom:0"><strong>Wq = 0 นาที</strong> ไม่มีใครรอเลย ทั้งที่โต๊ะทำงาน 80% ของเวลา</p>
+  </div>
+  <div class="card">
+    <p class="boxtitle" style="color:var(--bad)">กรณี ข — ผันแปร (M/M/1)</p>
+    <p>มาเฉลี่ยทุก 5 นาที เจาะเฉลี่ย 4 นาที แต่ทั้งคู่สุ่ม</p>
+    <div class="calc" style="font-size:.82rem;margin:.6em 0">06:30 มา → เจาะ 06:30–06:37 (เส้นยาก)
+06:31 มา → <span style="color:var(--bad)">รอ 6 นาที</span> → เจาะ 06:37–06:39
+06:32 มา → <span style="color:var(--bad)">รอ 7 นาที</span> → เจาะ 06:39–06:43</div>
+    <p style="margin-bottom:0"><strong>Wq = 16 นาที</strong> (สูตร M/M/1: ρ·E[S]/(1−ρ) = 0.8×4/0.2)</p>
+  </div>
+</div>
+
+<div class="note">
+  <p style="margin-bottom:0">
+    กำลังเท่ากัน ความเร็วเฉลี่ยเท่ากัน ปริมาณงานเท่ากัน
+    <strong>ต่างกันแค่ความแน่นอน — แต่เวลารอต่างกันจาก 0 เป็น 16 นาที</strong>
+    นี่คือเหตุผลว่าทำไม "จ้างคนเพิ่ม" ไม่ใช่คำตอบเดียวเสมอไป
+    บางครั้งการทำให้งาน<em>สม่ำเสมอขึ้น</em> ถูกกว่าและได้ผลมากกว่า
+  </p>
+</div>
+
+<h3>ทำไมความผันแปรจึงสร้างคิว</h3>
+<p>
+  เพราะ <strong>เวลาว่างกับเวลารอแลกกันไม่ได้</strong>
+  ถ้าโต๊ะว่างไป 3 นาทีตอน 09:00 เวลานั้นหายไปตลอดกาล
+  มันเก็บไว้ใช้ตอน 09:05 ที่คนมาพร้อมกันสามคนไม่ได้
+  ความผันแปรจึงสร้าง "เวลาว่างที่ใช้ไม่ได้" สลับกับ "งานกองที่ระบายไม่ทัน" ตลอดเวลา
+</p>
+
+<h2 id="cv">2. วัดความผันแปรด้วย cv²</h2>
+
+<div class="formula">
+  $$cv \;=\; \frac{\sigma}{\mu_{\text{mean}}}
+    \qquad\qquad
+    cv^{2} \;=\; \left(\frac{\sigma}{\mu_{\text{mean}}}\right)^{2}$$
+  <div class="caption">
+    ส่วนเบี่ยงเบนมาตรฐานหารด้วยค่าเฉลี่ย — ไม่มีหน่วย จึงเทียบข้ามหน่วยงานได้
+  </div>
+</div>
+
+<p>
+  ใช้ <code>cs²</code> เรียกความผันแปรของ<strong>เวลาบริการ</strong>
+  และ <code>ca²</code> เรียกความผันแปรของ<strong>ระยะห่างเวลามาถึง</strong>
+  (บางตำราเขียนเป็น <span class="katex-nowrap">$c_s^2, c_a^2$</span> หรือ SCV = squared coefficient of variation)
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ลักษณะงาน</th><th class="num">cv</th><th class="num">cv²</th><th>การแจกแจงที่ใช้แทน</th></tr></thead>
+  <tbody>
+    <tr><th>เป๊ะทุกครั้ง (เครื่องจักรอัตโนมัติ)</th><td class="num">0</td><td class="num">0</td><td>Deterministic (D)</td></tr>
+    <tr><th>คุมได้ดีมาก</th><td class="num">0.2–0.3</td><td class="num">0.04–0.09</td><td>Erlang-k ที่ k สูง</td></tr>
+    <tr class="is-flag"><th>งานบริการที่มี standard work</th><td class="num">0.3–0.5</td><td class="num">0.09–0.25</td><td>lognormal</td></tr>
+    <tr><th>ไม่มีมาตรฐาน / เคสหลากหลาย</th><td class="num">0.7–1.0</td><td class="num">0.5–1.0</td><td>lognormal, exponential</td></tr>
+    <tr><th>สุ่มสมบูรณ์ ไม่มีความจำ</th><td class="num">1.0</td><td class="num">1.0</td><td>Exponential (M)</td></tr>
+    <tr><th>มีเคสยากปนเคสง่ายมาก</th><td class="num">&gt; 1.3</td><td class="num">&gt; 1.7</td><td>Hyperexponential</td></tr>
+  </tbody>
+</table>
+<caption>แถวที่ไฮไลต์คือช่วงที่หน่วยบริการของ FlowLens ตกอยู่ทั้งหมด</caption>
+</div>
+
+<div class="warnbox">
+  <p class="boxtitle">เกณฑ์ที่ FlowLens ใช้ตัดสินว่า "ความผันแปรสูง"</p>
+  <p style="margin-bottom:0">
+    ในโค้ด <code>bottleneck.py</code> กำหนดไว้ว่า <code>HIGH_CS2 = 0.75</code>
+    พร้อมหมายเหตุว่า <em>"งานบริการที่คุมวิธีทำงานได้ cs² มักไม่เกิน 0.3 (cv 0.55)"</em>
+    หน่วยใดที่ cs² เกิน 0.75 จะถูกติดป้ายสาเหตุ <strong>"ความผันแปรสูง"</strong>
+    และข้อเสนอที่ตามมาคือ standard work / 5S / ถ่ายทอดวิธีจากคนที่เร็วที่สุด
+    ไม่ใช่การเพิ่มคน
+  </p>
+</div>
+
+<h3>ค่าจริงของทั้ง 8 หน่วย</h3>
+
+<figure>
+  <div id="cvChart"></div>
+  <figcaption>cs² ที่วัดได้จากข้อมูลจริง เทียบกับเกณฑ์ 0.75 ของ FlowLens
+    และเทียบกับ exponential (cs² = 1) ที่สูตร M/M/c สมมติไว้ —
+    ทุกหน่วย<strong>ต่ำกว่า</strong> 1 มาก แปลว่าสูตร M/M/c จะ<strong>ประเมินเวลารอสูงเกินจริง</strong></figcaption>
+</figure>
+
+<h2 id="vut">3. สมการ VUT ของ Kingman</h2>
+
+<p>
+  สำหรับคิวโต๊ะเดียวแบบทั่วไป (G/G/1) Kingman ให้สูตรประมาณที่สวยที่สุดในวิชานี้
+</p>
+
+<div class="formula">
+  $$W_q \;\approx\;
+  \underbrace{\left(\frac{c_a^{2}+c_s^{2}}{2}\right)}_{V\;\text{ความผันแปร}}
+  \;\times\;
+  \underbrace{\left(\frac{\rho}{1-\rho}\right)}_{U\;\text{การใช้กำลัง}}
+  \;\times\;
+  \underbrace{E[S]}_{T\;\text{เวลาบริการ}}$$
+  <div class="caption">อ่านว่า "VUT" — Variability × Utilization × Time</div>
+</div>
+
+<p>สมการนี้บอกสามเรื่องพร้อมกัน และแต่ละเรื่องแปลเป็นแนวทางแก้ไขคนละแบบ</p>
+
+<div class="cards">
+  <div class="card">
+    <p class="boxtitle" style="color:var(--s1)">V — ความผันแปร</p>
+    <p style="margin-bottom:.3em"><strong>เป็นตัวคูณเชิงเส้น</strong></p>
+    <p style="margin-bottom:0"><small>ลด cv² ลงครึ่งหนึ่ง เวลารอลดลงเกือบครึ่ง
+      แก้ด้วย: standard work, แยกคิวเคสยาก, ระบบนัดหมาย, ลดงานแทรก</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle" style="color:var(--s2)">U — การใช้กำลัง</p>
+    <p style="margin-bottom:.3em"><strong>ระเบิดเมื่อ ρ → 1</strong></p>
+    <p style="margin-bottom:0"><small>ρ 0.8→0.9 ทำให้ U เพิ่มจาก 4 เป็น 9 (2.25 เท่า)
+      แก้ด้วย: เพิ่มโต๊ะ, เลื่อนกะ, กระจายคนมาให้ทั่ว</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle" style="color:var(--s3)">T — เวลาบริการ</p>
+    <p style="margin-bottom:.3em"><strong>เป็นตัวคูณเชิงเส้น (แต่ซ่อนอยู่ใน ρ ด้วย)</strong></p>
+    <p style="margin-bottom:0"><small>ลดเวลาต่อราย 10% ได้ผลสองต่อ เพราะ ρ ลดลงด้วย
+      แก้ด้วย: ลดขั้นตอน, เตรียมของล่วงหน้า, ปรับผังงาน</small></p>
+  </div>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 3.1 — แยกส่วน VUT ของจุดเจาะเลือด</header>
+  <div class="body">
+    <p>
+      สมการ Kingman เป็นของคิว<strong>โต๊ะเดียว</strong> จึงต้องมองให้ตรง:
+      สมมติจุดเจาะเลือดเปิด 8 ห้อง <em>แยกคิวกันคนละแถว</em>
+      แต่ละห้องจึงรับงานหนึ่งในแปดของทั้งหมด
+    </p>
+    <div class="calc">λ (ต่อหนึ่งห้อง) = 1.732 / 8 = 0.2165 ราย/นาที
+E[S] = 4.2 นาที
+ρ    = 0.2165 × 4.2 = 0.909
+ca²  = 1.00   (สมมติ Poisson)
+cs²  = 0.20   (วัดได้จาก cv = 0.4482)
+
+V = (1.00 + 0.20) / 2            = <span class="hl">0.60</span>
+U = 0.909 / (1 − 0.909)          = <span class="hl">10.0</span>
+T = 4.2                          = <span class="hl">4.2</span>
+
+Wq(G/G/1) ≈ 0.60 × 10.0 × 4.2 = <span class="hl">25.2 นาที</span></div>
+    <p>
+      เก็บตัวเลข 25.2 นาทีนี้ไว้ — ใน <a href="04-mmc.html">บทที่ 4</a>
+      เราจะเอา 8 ห้องนี้มา<strong>รวมเป็นแถวเดียว</strong> แล้วเวลารอจะเหลือประมาณ
+      2.5 นาที โดยไม่ต้องเพิ่มคนแม้แต่คนเดียว
+    </p>
+    <p>
+      ถ้าสมมติผิดว่าเวลาบริการเป็น exponential (cs² = 1) จะได้
+      V = 1.0 และ Wq = 42 นาที — <strong>สูงเกินจริง 67%</strong>
+      นี่คือเหตุผลตรง ๆ ว่าทำไม FlowLens ไม่ใช้ M/M/c เป็นค่าหลัก
+    </p>
+    <p style="margin-bottom:0">
+      <small>หมายเหตุ: สมการ Kingman เป็นของ G/G/<strong>1</strong>
+      เมื่อมีหลายโต๊ะต้องใช้ Sakasegawa ซึ่งเป็นสมการเดียวกันที่ปรับพจน์ U
+      ดู <a href="05-ggc.html">บทที่ 5</a></small>
+    </p>
+  </div>
+</div>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 3.1 — แยกส่วน V × U × T</span>
+    <span class="hint">ตรึง ρ ไว้ แล้วเลื่อนแต่ cv² ดูว่าเวลารอเปลี่ยนแค่ไหน</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="r3"><span>ρ การใช้กำลัง</span><span class="val" id="r3V"></span></label>
+          <input type="range" id="r3" min="0.4" max="0.97" step="0.01" value="0.85">
+        </div>
+        <div class="ctrl">
+          <label for="ca3"><span>ca² การมาถึง</span><span class="val" id="ca3V"></span></label>
+          <input type="range" id="ca3" min="0" max="2.5" step="0.05" value="1.0">
+          <div class="sub">Poisson = 1.0 · นัดหมายเป๊ะ = 0 · มาเป็นกลุ่ม &gt; 1</div>
+        </div>
+        <div class="ctrl">
+          <label for="cs3"><span>cs² เวลาบริการ</span><span class="val" id="cs3V"></span></label>
+          <input type="range" id="cs3" min="0" max="2.5" step="0.05" value="0.20">
+          <div class="sub">จุดเจาะเลือดจริง = 0.20 · exponential = 1.0</div>
+        </div>
+        <div class="ctrl">
+          <label for="es3"><span>E[S] เวลาบริการ</span><span class="val" id="es3V"></span></label>
+          <input type="range" id="es3" min="1" max="10" step="0.1" value="4.2">
+        </div>
+      </div>
+      <div>
+        <div class="stats" style="margin-top:0;grid-template-columns:repeat(4,1fr)">
+          <div class="stat"><div class="k">V</div><div class="v" id="v3">—</div></div>
+          <div class="stat"><div class="k">U</div><div class="v" id="u3">—</div></div>
+          <div class="stat"><div class="k">T</div><div class="v" id="t3">—</div></div>
+          <div class="stat is-bad"><div class="k">Wq = V·U·T</div><div class="v" id="w3">—</div></div>
+        </div>
+        <div id="chart3"></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>cv²รวม = 0.6 (ของจริง)</span>
+          <span><i style="background:var(--s2)"></i>cv²รวม = 1.0 (M/M/1)</span>
+          <span><i style="background:var(--s3)"></i>cv²รวม = 0 (เป๊ะทุกอย่าง)</span>
+          <span><i style="background:var(--s4)"></i>ค่าที่คุณตั้งไว้</span>
+        </div>
+        <p style="font-size:.86rem;color:var(--ink-faint);margin:8px 0 0">
+          เส้นสีเขียวคือ D/D/1 — แบนราบที่ศูนย์จนถึง ρ = 1 พอดี
+          ระยะห่างระหว่างเส้นเขียวกับเส้นอื่น <strong>คือราคาของความไม่แน่นอน</strong> ทั้งหมด
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="measure">4. วัด ca² และ cs² จากข้อมูลจริงอย่างไร</h2>
+
+<p>FlowLens วัดทั้งสองค่าจาก event log โดยตรง ไม่สมมติเอา</p>
+
+<h3>cs² — จากเวลาบริการ</h3>
+<p>
+  คำนวณจากคอลัมน์ <code>service_min</code> ของทุกเหตุการณ์ในหน่วยนั้น
+  โดย<strong>ตัดค่าผิดปกติ (outlier) ออกก่อน</strong> แล้วใช้ฟังก์ชัน
+</p>
+<pre><code>def _scv(values):
+    v = values[finite & (v >= 0)]
+    if len(v) &lt; 3: return 1.0        # ข้อมูลน้อยเกิน → กลับไปใช้ค่าปลอดภัย
+    m = v.mean()
+    return (v.std(ddof=1) / m) ** 2</code></pre>
+
+<h3>ca² — จากระยะห่างเวลามาถึง</h3>
+<p>
+  ซับซ้อนกว่า เพราะต้องแยกเป็น <strong>รายช่วงเวลา</strong> และ <strong>รายวัน</strong>
+  ไม่อย่างนั้นความต่างระหว่างเช้ากับบ่ายจะถูกนับเป็นความผันแปรไปด้วย
+</p>
+<pre><code>def interarrival_scv(events, bin_minutes):
+    for b, g in df.groupby("bin"):          # แยกตามช่วง 15 นาที
+        for _, dg in g.groupby("day"):      # แยกตามวัน
+            gaps.append(diff(arrival_times))  # ระยะห่างภายในวันเดียวกัน
+        out[b] = _scv(concat(gaps))</code></pre>
+
+<div class="tip">
+  <p class="boxtitle">ทำไมต้องแยกรายวันด้วย</p>
+  <p style="margin-bottom:0">
+    ถ้าเอาเวลามาถึงของทุกวันมาต่อกันแล้วหาระยะห่าง จะได้ช่องว่าง "ข้ามคืน" ยาว 14 ชั่วโมง
+    ปนเข้ามาเป็นข้อมูล ทำให้ ca² สูงเกินจริงมหาศาล
+    นี่คือข้อผิดพลาดที่พบบ่อยที่สุดเวลาคำนวณ ca² จากข้อมูลจริง
+  </p>
+</div>
+
+<h3>ค่าที่วัดได้บอกอะไร</h3>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ค่าที่วัดได้</th><th>แปลว่า</th><th>ทำอะไรต่อ</th></tr></thead>
+  <tbody>
+    <tr><th>ca² ≈ 1</th><td>คนมาแบบสุ่มอิสระ (Poisson) ตามคาด</td><td>ใช้สูตรมาตรฐานได้เลย</td></tr>
+    <tr><th>ca² &gt; 1.5</th><td>คนมาเป็นกลุ่ม — รถบัส, รอบรถพยาบาล, นัดเป็นช่วง</td>
+      <td>กระจายนัดหมาย, เพิ่มกำลังเฉพาะช่วงที่กลุ่มมา</td></tr>
+    <tr><th>ca² &lt; 0.5</th><td>คุมการมาถึงได้ดี (ระบบนัดที่ใช้ได้ผล)</td><td>รักษาไว้ และลด c ลงได้โดยไม่เพิ่มคิว</td></tr>
+    <tr class="is-flag"><th>cs² &gt; 0.75</th><td>วิธีทำงานไม่เป็นมาตรฐาน หรือมีเคสยากปน</td>
+      <td>FlowLens ติดป้าย "ความผันแปรสูง" → standard work, แยกคิวเคสยาก</td></tr>
+    <tr><th>เวลาต่างกันระหว่างโต๊ะ &gt; 25%</th><td>คนทำงานเร็ว-ช้าต่างกันมาก</td>
+      <td>ถ่ายทอดวิธีจากคนที่เร็วที่สุด (FlowLens ตรวจด้วย <code>server_spread</code>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="shape">5. รูปร่างการแจกแจงสำคัญแค่ไหน</h2>
+
+<p>
+  คำตอบที่น่าประหลาดใจคือ <strong>แทบไม่สำคัญ</strong> — สิ่งที่สำคัญคือ cv²
+  การแจกแจงสองแบบที่หน้าตาต่างกันมาก แต่มี mean และ cv² เท่ากัน
+  จะให้เวลารอใกล้เคียงกันมาก นี่คือเหตุผลว่าทำไมสูตรประมาณอย่าง Kingman
+  และ Sakasegawa ถึงใช้ได้ดีในทางปฏิบัติ ทั้งที่มันรู้แค่ค่าเฉลี่ยกับ cv²
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 3.2 — รูปร่างของเวลาบริการจริง</span>
+    <span class="hint">เลื่อน cv แล้วดูว่าหางยาวขึ้นแค่ไหน</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="cv5"><span>cv ของเวลาบริการ</span><span class="val" id="cv5V"></span></label>
+          <input type="range" id="cv5" min="0.05" max="1.6" step="0.05" value="0.45">
+          <div class="sub">จุดเจาะเลือดจริง cv = 0.45</div>
+        </div>
+        <div class="ctrl">
+          <label for="m5"><span>ค่าเฉลี่ย E[S]</span><span class="val" id="m5V"></span></label>
+          <input type="range" id="m5" min="1" max="10" step="0.1" value="4.2">
+        </div>
+        <div id="shapeStats"></div>
+      </div>
+      <div>
+        <div id="chart5"></div>
+        <p style="font-size:.86rem;color:var(--ink-faint);margin:8px 0 0">
+          การแจกแจงแบบ lognormal จำลองเวลาบริการจริงได้ดี เพราะมันเป็นบวกเสมอ
+          และมีหางขวายาว — ตรงกับงานบริการที่ "ส่วนใหญ่เร็ว แต่บางเคสนานมาก"
+          FlowLens ใช้การแจกแจงนี้สร้างข้อมูลตัวอย่างและในแบบจำลอง SimPy
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 3</h4>
+  <ul>
+    <li>คิวเกิดจาก<strong>ความผันแปร</strong> ไม่ใช่จากการที่กำลังไม่พอเพียงอย่างเดียว — ที่ ρ เท่ากัน ระบบที่เป๊ะมี Wq = 0</li>
+    <li><strong>Wq ≈ V × U × T</strong> — ลดตัวใดก็ลดเวลารอได้ แต่ราคาและวิธีทำต่างกันสิ้นเชิง</li>
+    <li>V ลดด้วยการทำงานให้เป็นมาตรฐาน · U ลดด้วยการเพิ่มกำลัง · T ลดด้วยการลดขั้นตอน</li>
+    <li>หน่วยทั้ง 8 ของกรณีศึกษามี cs² ระหว่าง 0.06–0.25 ซึ่ง<strong>ต่ำกว่า exponential มาก</strong>
+      การใช้ M/M/c จึงให้คำตอบที่สูงเกินจริง</li>
+    <li>ต้องวัด ca² แยกรายช่วงเวลา<strong>และรายวัน</strong> ไม่งั้นช่องว่างข้ามคืนจะทำให้ค่าพุ่ง</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- cs² ของทุกหน่วย ---------- */
+  function drawCv() {
+    var us = FL.units.filter(function (u) { return u.type !== 'transport'; });
+    Chart.mount('cvChart', Chart.barChart({
+      width: 700, height: 270, rotate: true, valueLabels: true,
+      labels: us.map(function (u) { return u.short; }),
+      series: [{ values: us.map(function (u) { return u.truth.serviceCv * u.truth.serviceCv; }),
+                 colors: us.map(function (u) {
+                   var v = u.truth.serviceCv * u.truth.serviceCv;
+                   return v > 0.75 ? 'var(--bad)' : 'var(--s1)';
+                 }) }],
+      y1: 1.1, ylabel: 'cs²',
+      vfmt: function (v) { return v.toFixed(2); },
+      yfmt: function (v) { return v.toFixed(2); },
+      rules: [{ y: 0.75, color: 'var(--warn)', label: 'เกณฑ์ FlowLens 0.75' },
+              { y: 1.0, color: 'var(--bad)', label: 'exponential = 1.0' }],
+      margin: { t: 14, r: 16, b: 66, l: 48 },
+      label: 'cs² ของแต่ละหน่วย',
+    }));
+  }
+  drawCv();
+
+  /* ---------- VUT ---------- */
+  function vut() {
+    var r = Site.v('r3'), ca = Site.v('ca3'), cs = Site.v('cs3'), es = Site.v('es3');
+    Site.show('r3', r.toFixed(2));
+    Site.show('ca3', ca.toFixed(2));
+    Site.show('cs3', cs.toFixed(2));
+    Site.show('es3', es.toFixed(1) + ' นาที');
+
+    var V = (ca + cs) / 2, U = r / (1 - r), T = es;
+    document.getElementById('v3').textContent = V.toFixed(2);
+    document.getElementById('u3').textContent = U.toFixed(1);
+    document.getElementById('t3').textContent = T.toFixed(1);
+    document.getElementById('w3').innerHTML = (V * U * T).toFixed(1) + '<span class="u">นาที</span>';
+
+    function curve(v) {
+      var p = [];
+      for (var x = 0.3; x <= 0.975; x += 0.005) {
+        p.push([x, Math.min(v * (x / (1 - x)) * es, 160)]);
+      }
+      return p;
+    }
+    Chart.mount('chart3', Chart.lineChart({
+      width: 600, height: 260, x0: 0.3, x1: 0.98, y0: 0, y1: 160,
+      xlabel: 'ρ', ylabel: 'Wq (นาที)',
+      xfmt: function (v) { return v.toFixed(2); },
+      series: [
+        { points: curve(0.6), color: 'var(--s1)', width: 2.4 },
+        { points: curve(1.0), color: 'var(--s2)', width: 1.8, dash: '5 3' },
+        { points: curve(0), color: 'var(--s3)', width: 2.2 },
+        { points: curve(V), color: 'var(--s4)', width: 2.6, dash: '2 3' },
+      ],
+      rules: [{ x: r, color: 'var(--ink-faint)', label: 'ρ = ' + r.toFixed(2) }],
+      label: 'เส้นโค้งเวลารอเทียบ ρ ที่ความผันแปรต่าง ๆ',
+    }));
+  }
+  Site.bind(['r3', 'ca3', 'cs3', 'es3'], vut);
+
+  /* ---------- รูปร่างการแจกแจง ---------- */
+  function shape() {
+    var cv = Site.v('cv5'), m = Site.v('m5');
+    Site.show('cv5', cv.toFixed(2) + '  (cv² = ' + (cv * cv).toFixed(2) + ')');
+    Site.show('m5', m.toFixed(1) + ' นาที');
+
+    var rand = Q.rng(2026), vals = [];
+    for (var i = 0; i < 6000; i++) vals.push(Q.rlognorm(rand, m, cv));
+    var s = Q.stats(vals);
+    Chart.mount('chart5', Chart.histogram({
+      width: 600, height: 250, values: vals, bins: 46, x0: 0, x1: Math.max(m * 4, 12),
+      color: 'var(--s1)', xlabel: 'เวลาบริการ (นาที)',
+      rules: [{ y: 0 }],
+      label: 'การแจกแจงของเวลาบริการ',
+    }));
+    document.getElementById('shapeStats').innerHTML =
+      '<div class="stats" style="grid-template-columns:repeat(2,1fr);margin:16px 0 0">' +
+      '<div class="stat"><div class="k">ค่ากลาง p50</div><div class="v">' + s.p50.toFixed(1) + '<span class="u">น.</span></div></div>' +
+      '<div class="stat"><div class="k">p90</div><div class="v">' + s.p90.toFixed(1) + '<span class="u">น.</span></div></div>' +
+      '<div class="stat"><div class="k">ยาวสุดที่เจอ</div><div class="v">' + s.max.toFixed(1) + '<span class="u">น.</span></div></div>' +
+      '<div class="stat"><div class="k">p90 / p50</div><div class="v">' + (s.p90 / s.p50).toFixed(2) + '×</div></div>' +
+      '</div>' +
+      '<p style="font-size:.85rem;color:var(--ink-soft);margin:12px 0 0">' +
+      'ยิ่ง cv สูง อัตราส่วน p90/p50 ยิ่งห่าง — แปลว่า "เคสยาก" กินเวลามากกว่าเคสปกติหลายเท่า ' +
+      'ซึ่งเป็นสิ่งที่ทำให้คิวสะดุด</p>';
+  }
+  Site.bind(['cv5', 'm5'], shape);
+
+  document.addEventListener('themechange', function () { drawCv(); vut(); shape(); });
+})();
+</script>
+</body>
+</html>

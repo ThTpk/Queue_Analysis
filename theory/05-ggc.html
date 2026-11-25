@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 5 — G/G/c, Sakasegawa และเปอร์เซ็นไทล์ของเวลารอ</title>
+<meta name="description" content="สูตร Sakasegawa และ Allen–Cunneen สำหรับคิวทั่วไป วิธีคำนวณเปอร์เซ็นไทล์ของเวลารอที่ FlowLens ใช้ และการตรวจความแม่นด้วยการจำลอง">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/05-ggc.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 5</p>
+  <h1>G/G/c และเปอร์เซ็นไทล์ของเวลารอ</h1>
+  <p class="lede">
+    สูตรที่ FlowLens ใช้จริงในการตัดสินใจ — เพราะมันรับความผันแปรที่<em>วัดได้จากข้อมูล</em>
+    เข้าไปตรง ๆ และเพราะเป้าหมายของโรงพยาบาลเขียนเป็น p90 ไม่ใช่ค่าเฉลี่ย
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="need">1. ทำไมต้องมีสูตรอีกชุด</h2>
+
+<p>
+  M/M/c สมมติว่าเวลาบริการเป็น exponential ซึ่งแปลว่า cs² = 1 เสมอ
+  แต่เวลาเจาะเลือดจริงมี cs² = 0.20 ความต่างนี้ไม่ใช่เรื่องเล็ก
+  เพราะเวลารอเป็น<strong>สัดส่วนตรง</strong>กับ (ca² + cs²)/2
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="k">M/M/c สมมติ</div><div class="v">1.00<span class="u">cs²</span></div></div>
+  <div class="stat is-ok"><div class="k">จุดเจาะเลือดจริง</div><div class="v">0.20<span class="u">cs²</span></div></div>
+  <div class="stat is-ok"><div class="k">เครื่องเคมีจริง</div><div class="v">0.06<span class="u">cs²</span></div></div>
+  <div class="stat is-bad"><div class="k">ใช้ M/M/c จะเกินจริง</div><div class="v">+67%</div><div class="d">ที่ cs² = 0.20</div></div>
+</div>
+
+<p>
+  ถ้าเอาตัวเลขที่เกินจริง 67% ไปเสนอผู้บริหาร ผลคือ<strong>จ้างคนเกินความจำเป็น</strong>
+  ในทางกลับกัน ถ้าหน่วยใดมี cs² สูงกว่า 1 (เคสยากปนเคสง่าย)
+  M/M/c จะประเมิน<em>ต่ำ</em>เกินไปแล้วเราจะเติมคนไม่พอ
+</p>
+
+<h2 id="saka">2. สูตร Sakasegawa</h2>
+
+<div class="formula">
+  $$W_q^{G/G/c} \;\approx\;
+  \frac{\rho^{\sqrt{2(c+1)}-1}}{c\,(1-\rho)}
+  \;\cdot\;\frac{c_a^{2}+c_s^{2}}{2}
+  \;\cdot\; E[S]$$
+  <div class="caption">
+    โครงเดียวกับ VUT ของ Kingman ทุกประการ — เปลี่ยนแค่พจน์ U ให้รองรับหลายโต๊ะ
+  </div>
+</div>
+
+<p>เทียบสามสูตรให้เห็นว่าต่างกันตรงไหน:</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>สูตร</th><th>พจน์ V</th><th>พจน์ U</th><th>พจน์ T</th></tr></thead>
+  <tbody>
+    <tr><th>Kingman (G/G/1)</th><td class="num">(ca²+cs²)/2</td>
+      <td class="num">ρ/(1−ρ)</td><td class="num">E[S]</td></tr>
+    <tr><th>Sakasegawa (G/G/c)</th><td class="num">(ca²+cs²)/2</td>
+      <td class="num">ρ^(√(2(c+1))−1) / (c(1−ρ))</td><td class="num">E[S]</td></tr>
+    <tr><th>M/M/c (ตรง)</th><td class="num">1</td>
+      <td class="num">C(c,a)/(cμ−λ) ÷ E[S]</td><td class="num">E[S]</td></tr>
+  </tbody>
+</table>
+<caption>เมื่อ c = 1 เลขชี้กำลังจะเป็น √4 − 1 = 1 ทำให้ Sakasegawa กลายเป็น Kingman พอดี</caption>
+</div>
+
+<div class="note">
+  <p class="boxtitle">Allen–Cunneen — อีกชื่อของสูตรเดียวกัน</p>
+  <p style="margin-bottom:0">
+    ตำราบางเล่มเขียนเป็น
+    <span class="katex-nowrap">$W_q^{G/G/c} \approx \dfrac{c_a^2+c_s^2}{2}\cdot W_q^{M/M/c}$</span>
+    คือเอาผลของ M/M/c มาคูณด้วยตัวประกอบความผันแปรโดยตรง
+    (เรียก Allen–Cunneen approximation) ทั้งสองวิธีให้ผลใกล้เคียงกันมาก
+    FlowLens เลือกใช้รูป Sakasegawa เพราะคำนวณได้โดยไม่ต้องเรียก Erlang-C
+    จึงเร็วกว่าเมื่อต้องวนคำนวณหลายพันช่วงเวลา
+  </p>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 5.1 — จุดเจาะเลือด 7 โต๊ะ เทียบ 11 โต๊ะ</header>
+  <div class="body">
+    <div class="calc">λ = 1.732 ราย/นาที   E[S] = 4.2 นาที
+ca² = 1.00 (Poisson)   cs² = 0.20 (วัดได้)
+a = λE[S] = 7.274 erlang
+
+<span class="cm">── 7 โต๊ะ (ที่เปิดจริง) ──────────────────────</span>
+ρ = 7.274 / 7 = 1.039  ≥ 1
+<span class="hl">Wq = ∞</span>  ← ไม่มีสมดุล คิวโตไม่หยุด
+
+<span class="cm">── 11 โต๊ะ (ตามที่ config ประกาศ) ─────────────</span>
+ρ = 7.274 / 11 = 0.6613
+เลขชี้กำลัง = √(2×12) − 1 = 3.899
+ρ^3.899 = 0.1994
+
+U = 0.1994 / (11 × 0.3387) = 0.05352
+V = (1.00 + 0.20) / 2      = 0.60
+T = 4.2
+
+<span class="hl">Wq = 0.05352 × 0.60 × 4.2 = 0.13 นาที</span>  (ประมาณ 8 วินาที)</div>
+    <p>
+      ผลต่างระหว่าง 7 กับ 11 โต๊ะ ไม่ใช่ "รอนานขึ้นนิดหน่อย"
+      แต่เป็น <strong>ความต่างระหว่างระบบที่ทำงานได้กับระบบที่พังทุกเช้า</strong>
+    </p>
+    <div class="warnbox" style="margin-bottom:0">
+      <p style="margin-bottom:0">
+        <strong>แต่คำตอบ "0.13 นาที" ยังไม่ใช่เรื่องจริงทั้งหมด</strong> —
+        λ = 1.732 คือค่าเฉลี่ยของช่วง 06:30–09:00 ส่วนครึ่งชั่วโมงแรกจริง ๆ
+        λ = 2.813 ซึ่งทำให้ ρ = 1.074 <em>แม้มี 11 โต๊ะ</em>
+        สูตรคิวทุกสูตรในบทนี้สมมติว่า λ คงที่ จึงใช้ไม่ได้กับช่วงที่โหลดพุ่งชั่วคราว
+        ต้องใช้วิธีของ <a href="09-nonstationary.html">บทที่ 9</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<h2 id="pct">3. เปอร์เซ็นไทล์ — สิ่งที่เป้าหมายจริงเขียนไว้</h2>
+
+<p>
+  ไม่มีโรงพยาบาลไหนตั้งเป้าว่า "เวลารอเฉลี่ยไม่เกิน 15 นาที"
+  เพราะค่าเฉลี่ยซ่อนคนที่รอ 2 ชั่วโมงไว้ได้สบาย เป้าจริงเขียนแบบ
+  <strong>"ผู้ป่วย 90% ต้องรอไม่เกิน 15 นาที"</strong>
+  ซึ่งคือเปอร์เซ็นไทล์ที่ 90 ของเวลารอ
+</p>
+
+<p>
+  ปัญหาคือ ไม่มีสูตรปิดสำหรับเปอร์เซ็นไทล์ของ G/G/c
+  FlowLens จึงใช้วิธีผสมสองขั้น
+</p>
+
+<ol class="steps">
+  <li>
+    <span class="st">ใช้หาง exponential ของ M/M/c เป็นรูปร่างพื้นฐาน</span>
+    เพราะ M/M/c มีสูตรปิดสวยงาม <span class="katex-nowrap">$P(W_q>t)=C\,e^{-(c\mu-\lambda)t}$</span>
+    จัดรูปย้อนกลับได้
+    <div class="formula tight" style="margin:.8em 0 0">
+      $$t_p \;=\; \frac{1}{c\mu-\lambda}\,\ln\!\left(\frac{C(c,a)}{1-p}\right)$$
+    </div>
+  </li>
+  <li>
+    <span class="st">ปรับสเกลด้วยอัตราส่วนของค่าเฉลี่ย</span>
+    เพราะรูปร่างของหางใกล้เคียงกัน แต่ขนาดต่างกันตามความผันแปร
+    <div class="formula tight" style="margin:.8em 0 0">
+      $$W_q(p) \;=\; t_p \times \underbrace{\frac{W_q^{G/G/c}}{W_q^{M/M/c}}}_{\text{ตัวปรับสเกล}}$$
+    </div>
+  </li>
+  <li>
+    <span class="st">กรณีขอบ</span>
+    ถ้า <span class="katex-nowrap">$C(c,a) \le 1-p$</span> แปลว่าคนน้อยกว่า (1−p)
+    ต้องรอเลย → เปอร์เซ็นไทล์ที่ p เท่ากับ <strong>0</strong> พอดี
+    (เช่น ถ้ามีคนต้องรอแค่ 8% แล้ว p90 ของเวลารอ = 0 นาที)
+  </li>
+</ol>
+
+<pre><code>def wq_percentile(lam, service_mean, c, p=0.9, ca2=1.0, cs2=1.0):
+    mu   = 1.0 / service_mean
+    cw   = erlang_c(c, lam / mu)
+    rate = c * mu - lam
+    base = max(0.0, math.log(cw / (1.0 - p)) / rate) if cw &gt; (1.0 - p) else 0.0
+    mmc   = wq_mmc(lam, service_mean, c)
+    ggc   = wq_sakasegawa(lam, service_mean, c, ca2, cs2)
+    scale = (ggc / mmc) if mmc &gt; 0 and math.isfinite(ggc) else 1.0
+    return base * scale</code></pre>
+<p><small>— <code>flowlens/core/analysis/queueing.py</code></small></p>
+
+<div class="tip">
+  <p class="boxtitle">ข้อจำกัดที่ควรรู้</p>
+  <p style="margin-bottom:0">
+    วิธีนี้<strong>ไม่ใช่สูตรที่พิสูจน์ได้ว่าแม่น</strong> แต่เป็นการประมาณที่ใช้งานได้ดี
+    เมื่อ cs² ไม่ต่างจาก 1 มากเกินไป ถ้า cs² ต่ำมาก (&lt; 0.1) หางจริงจะสั้นกว่า
+    exponential ทำให้ p90 ที่คำนวณได้<em>สูงเกินจริงเล็กน้อย</em> — ซึ่งปลอดภัยกว่าการประเมินต่ำ
+    FlowLens จึงใช้ค่านี้สำหรับ "คัดกรองว่าหน่วยไหนน่าห่วง" แล้วยืนยันตัวเลขสุดท้าย
+    ด้วย<strong>การจำลอง</strong> (<a href="09-nonstationary.html">บทที่ 9</a>) ก่อนออกรายงาน
+  </p>
+</div>
+
+<h2 id="check">4. สูตรแม่นแค่ไหน — ตรวจด้วยการจำลอง</h2>
+
+<p>
+  นี่คือการทดลองที่ตอบคำถามได้ตรงที่สุด: รันคิวจริง ๆ ด้วยเครื่องจำลองเหตุการณ์
+  (แบบเดียวกับที่ FlowLens ใช้ SimPy) แล้วเทียบผลกับสูตร
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 5.1 — สูตรเทียบของจริง</span>
+    <span class="hint">กดปุ่มรันแล้วรอสักครู่ ระบบจะจำลองคิวจริงหลายหมื่นราย</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="r5"><span>ρ เป้าหมาย</span><span class="val" id="r5V"></span></label>
+          <input type="range" id="r5" min="0.5" max="0.95" step="0.01" value="0.85">
+        </div>
+        <div class="ctrl">
+          <label for="c5"><span>จำนวนโต๊ะ c</span><span class="val" id="c5V"></span></label>
+          <input type="range" id="c5" min="1" max="12" step="1" value="4">
+        </div>
+        <div class="ctrl">
+          <label for="v5"><span>cs² เวลาบริการ</span><span class="val" id="v5V"></span></label>
+          <input type="range" id="v5" min="0.05" max="2" step="0.05" value="0.20">
+        </div>
+        <div class="ctrl">
+          <label for="d5"><span>นาทีที่จำลอง</span><span class="val" id="d5V"></span></label>
+          <input type="range" id="d5" min="2000" max="30000" step="1000" value="12000">
+        </div>
+        <div class="btnrow" style="margin-top:14px">
+          <button class="btn primary" id="run5">รันการจำลอง</button>
+        </div>
+        <p style="font-size:.84rem;color:var(--ink-faint)">
+          E[S] คงที่ 4.2 นาที · การมาถึงเป็น Poisson (ca² = 1) ·
+          เวลาบริการเป็น lognormal ที่ cs² ตามที่ตั้ง
+        </p>
+      </div>
+      <div>
+        <div id="res5"><p style="color:var(--ink-faint)">กดปุ่ม "รันการจำลอง" เพื่อเริ่ม</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="when">5. เลือกสูตรไหนเมื่อไร</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>สถานการณ์</th><th>ใช้</th><th>เหตุผล</th></tr></thead>
+  <tbody>
+    <tr><th>คิดเร็วในหัว ตัดสินใจหยาบ ๆ</th><td>M/M/1 หรือ M/M/c</td>
+      <td>จำง่าย ปลอดภัย (มักให้ค่าสูงกว่าจริง)</td></tr>
+    <tr><th>ต้องการตัวเลขไปเสนอ/ตั้งงบ</th><td><strong>Sakasegawa</strong> ด้วย ca², cs² ที่วัดจากข้อมูล</td>
+      <td>สะท้อนความผันแปรจริง ไม่ให้ตัวเลขเกินจริง</td></tr>
+    <tr><th>ตั้งเป้าแบบ "x% รอไม่เกิน t"</th><td>wq_percentile</td>
+      <td>ค่าเฉลี่ยตอบคำถามนี้ไม่ได้</td></tr>
+    <tr><th>λ หรือ c เปลี่ยนระหว่างวัน</th><td>แบ่งช่วง 15 นาที แล้วใช้สูตรในแต่ละช่วง</td>
+      <td>สูตรทุกตัวสมมติสถานะคงตัว</td></tr>
+    <tr class="is-flag"><th>ρ ≥ 1 แม้ชั่วคราว หรือมีคิวค้างจากช่วงก่อน</th>
+      <td><strong>การจำลอง</strong> เท่านั้น</td>
+      <td>ไม่มีสถานะคงตัวให้คำนวณ สูตรให้ ∞ ซึ่งไม่มีประโยชน์</td></tr>
+    <tr><th>มีลำดับความสำคัญ (เคสด่วน), การบล็อก, งานทำซ้ำซับซ้อน</th>
+      <td>การจำลอง</td><td>สูตรปิดไม่รองรับโครงสร้างเหล่านี้</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 5</h4>
+  <ul>
+    <li><strong>Sakasegawa</strong> คือ VUT ของ Kingman ที่ขยายให้รองรับหลายโต๊ะ — และเป็นสูตรหลักของ FlowLens</li>
+    <li>ใช้ ca² และ cs² ที่<strong>วัดจากข้อมูลจริง</strong> ไม่ใช่สมมติ = 1</li>
+    <li>เปอร์เซ็นไทล์คำนวณจากหาง exponential ของ M/M/c แล้วปรับสเกลด้วยอัตราส่วน G/G/c ÷ M/M/c</li>
+    <li>ถ้า P(ต้องรอ) น้อยกว่า (1−p) เปอร์เซ็นไทล์ที่ p เท่ากับ 0 — คนส่วนใหญ่ไม่ต้องรอเลย</li>
+    <li>สูตรทุกตัวใช้ได้เฉพาะเมื่อ <strong>ρ &lt; 1 และสถานะคงตัว</strong> นอกจากนั้นต้องจำลอง</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ES = 4.2;
+
+  function labels() {
+    Site.show('r5', Site.v('r5').toFixed(2));
+    Site.show('c5', Site.v('c5') + ' โต๊ะ');
+    Site.show('v5', Site.v('v5').toFixed(2));
+    Site.show('d5', Q.fmt.i(Site.v('d5')) + ' นาที');
+  }
+  Site.bind(['r5', 'c5', 'v5', 'd5'], labels);
+
+  document.getElementById('run5').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'กำลังรัน…';
+    var host = document.getElementById('res5');
+    host.innerHTML = '<p style="color:var(--ink-faint)">กำลังจำลอง…</p>';
+
+    setTimeout(function () {
+      var rho = Site.v('r5'), c = Site.v('c5'), cs2 = Site.v('v5'), T = Site.v('d5');
+      var lam = (rho * c) / ES;
+
+      var sim = new DES.Sim({
+        stations: [{ id: 'S', name: 'จุด', serviceMean: ES, scv: cs2, servers: c }],
+        routes: [{ from: 'ARRIVAL', to: 'S', p: 1 }, { from: 'S', to: 'EXIT', p: 1 }],
+        arrivalRate: function () { return lam; }, lamMax: lam,
+        tStart: 0, tEnd: T, seed: 20261125,
+      });
+      sim.runAll();
+      var s = sim.summary().units[0];
+
+      var fMMc = Q.wqMMc(lam, ES, c);
+      var fGGc = Q.wqGGc(lam, ES, c, 1, cs2);
+      var fP90 = Q.wqPercentile(lam, ES, c, 0.9, 1, cs2);
+      var err = function (f, o) { return o > 0 ? ((f - o) / o) * 100 : NaN; };
+
+      function row(name, f, o, note) {
+        var e = err(f, o);
+        var cls = !Number.isFinite(e) ? '' : Math.abs(e) <= 12 ? '' : 'is-flag';
+        return '<tr class="' + cls + '"><th>' + name + '</th>' +
+          '<td class="num">' + f.toFixed(2) + '</td>' +
+          '<td class="num">' + o.toFixed(2) + '</td>' +
+          '<td class="num"><strong>' + (Number.isFinite(e) ? (e > 0 ? '+' : '') + e.toFixed(1) + '%' : '—') + '</strong></td>' +
+          '<td style="font-size:.85rem;color:var(--ink-soft)">' + note + '</td></tr>';
+      }
+
+      host.innerHTML =
+        '<div class="stats" style="margin-top:0;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">' +
+        '<div class="stat"><div class="k">ρ ที่วัดได้</div><div class="v">' + s.rho.toFixed(3) + '</div></div>' +
+        '<div class="stat"><div class="k">ผู้ป่วยที่จำลอง</div><div class="v">' + Q.fmt.i(s.departures) + '</div></div>' +
+        '<div class="stat"><div class="k">Lq ที่วัดได้</div><div class="v">' + s.Lq.toFixed(2) + '</div></div>' +
+        '<div class="stat"><div class="k">λ×Wq (ลิตเติล)</div><div class="v">' + (lam * s.waitMean).toFixed(2) + '</div></div>' +
+        '</div>' +
+        '<div class="tablewrap"><table><thead><tr>' +
+        '<th>ค่า</th><th class="num">สูตร</th><th class="num">จำลองจริง</th><th class="num">คลาดเคลื่อน</th><th>หมายเหตุ</th>' +
+        '</tr></thead><tbody>' +
+        row('Wq — Sakasegawa', fGGc, s.waitMean, 'สูตรหลักของ FlowLens') +
+        row('Wq — M/M/c', fMMc, s.waitMean, 'สมมติ cs² = 1') +
+        row('Wq p90', fP90, s.waitP90, 'วิธีหาง exponential + ปรับสเกล') +
+        '</tbody></table><caption>แถวที่ไฮไลต์คือคลาดเคลื่อนเกิน ±12%</caption></div>' +
+        '<div id="hist5"></div>' +
+        '<p style="font-size:.85rem;color:var(--ink-faint);margin:6px 0 0">' +
+        'การกระจายเวลารอจริงของผู้ป่วยทุกคนในการจำลอง — สังเกตว่าคนจำนวนมากรอ 0 นาที ' +
+        '(ได้บริการทันที) และมีหางขวายาว นั่นคือเหตุผลที่ p90 สูงกว่าค่าเฉลี่ยหลายเท่า</p>';
+
+      var waits = sim.st.S.waits;
+      Chart.mount('hist5', Chart.histogram({
+        width: 600, height: 230, values: waits, bins: 40,
+        x0: 0, x1: Math.max(Q.quantile(waits.slice().sort(function (a, b) { return a - b; }), 0.995), 1),
+        color: 'var(--s1)', xlabel: 'เวลารอ (นาที)',
+        rules: [{ y: 0 }],
+        label: 'การกระจายเวลารอจากการจำลอง',
+      }));
+      btn.disabled = false; btn.textContent = 'รันการจำลองอีกครั้ง';
+    }, 30);
+  });
+})();
+</script>
+</body>
+</html>

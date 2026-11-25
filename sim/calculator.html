@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องทดลอง — เครื่องคิดเลขคิว</title>
+<meta name="description" content="คำนวณ ρ, Wq, Lq, เปอร์เซ็นไทล์ของเวลารอ และจำนวนโต๊ะที่ต้องมี ด้วยสูตร M/M/c, G/G/c (Sakasegawa) และ Kingman พร้อมกราฟเปรียบเทียบ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="sim/calculator.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">ห้องทดลอง</p>
+  <h1>เครื่องคิดเลขคิว</h1>
+  <p class="lede">
+    ใส่ค่าสี่ห้าตัว แล้วได้คำตอบครบทุกสูตรในเว็บนี้พร้อมกัน
+    ทั้ง M/M/c, G/G/c และเปอร์เซ็นไทล์ — พร้อมคำแนะนำว่าควรเปิดกี่โต๊ะ
+  </p>
+</div>
+
+<div class="lab" style="margin-top:0">
+  <header>
+    <span class="ttl">ค่าที่ใส่</span>
+    <span class="hint">กดปุ่มด้านล่างเพื่อโหลดค่าจริงของหน่วยในกรณีศึกษา</span>
+  </header>
+  <div class="body">
+    <div class="btnrow">
+      <button class="btn" data-u="REG">ลงทะเบียน</button>
+      <button class="btn" data-u="PHLEB">จุดเจาะเลือด</button>
+      <button class="btn" data-u="RECEIVE">รับ/ปั่นแยก</button>
+      <button class="btn" data-u="CHEM">เครื่องเคมี</button>
+      <button class="btn" data-u="HEMA">เครื่องโลหิตวิทยา</button>
+      <button class="btn" data-u="VERIFY">ทวนสอบผล</button>
+    </div>
+
+    <div class="grid g3" style="margin:0 0 6px">
+      <div class="ctrl" style="margin:0">
+        <label for="lam"><span>λ อัตราคนมา</span><span class="val" id="lamV"></span></label>
+        <input type="range" id="lam" min="0.02" max="4" step="0.01" value="1.73">
+        <div class="sub" id="lamHr"></div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="es"><span>E[S] เวลาบริการ</span><span class="val" id="esV"></span></label>
+        <input type="range" id="es" min="0.2" max="30" step="0.1" value="4.2">
+        <div class="sub" id="muSub"></div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="c"><span>c จำนวนโต๊ะ</span><span class="val" id="cV"></span></label>
+        <input type="range" id="c" min="1" max="40" step="1" value="7">
+        <div class="sub" id="cSub"></div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="ca2"><span>ca² ความผันแปรการมาถึง</span><span class="val" id="ca2V"></span></label>
+        <input type="range" id="ca2" min="0" max="3" step="0.05" value="1">
+        <div class="sub">Poisson = 1.00</div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="cs2"><span>cs² ความผันแปรเวลาบริการ</span><span class="val" id="cs2V"></span></label>
+        <input type="range" id="cs2" min="0" max="3" step="0.05" value="0.2">
+        <div class="sub">exponential = 1.00</div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="tgt"><span>เป้า: รอไม่เกิน</span><span class="val" id="tgtV"></span></label>
+        <input type="range" id="tgt" min="1" max="60" step="1" value="15">
+        <div class="sub">ใช้คู่กับเปอร์เซ็นไทล์ด้านล่าง</div>
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="pct"><span>เปอร์เซ็นไทล์ที่สนใจ</span><span class="val" id="pctV"></span></label>
+        <input type="range" id="pct" min="0.5" max="0.99" step="0.01" value="0.9">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="rmax"><span>เพดาน ρ ที่ยอมรับได้</span><span class="val" id="rmaxV"></span></label>
+        <input type="range" id="rmax" min="0.5" max="0.98" step="0.01" value="0.85">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="verdict"></div>
+
+<h2 id="out">ผลลัพธ์</h2>
+
+<div class="stats">
+  <div class="stat" id="o_a"><div class="k">a = λE[S] (erlang)</div><div class="v">—</div><div class="d">งานที่ไหลเข้า</div></div>
+  <div class="stat" id="o_rho"><div class="k">ρ การใช้กำลัง</div><div class="v">—</div><div class="d" id="o_rho_d"></div></div>
+  <div class="stat" id="o_pw"><div class="k">P(ต้องรอ)</div><div class="v">—</div><div class="d">Erlang-C</div></div>
+  <div class="stat" id="o_sl"><div class="k">รอไม่เกินเป้า</div><div class="v">—</div><div class="d" id="o_sl_d"></div></div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ค่า</th><th class="num">G/G/c<br><small>Sakasegawa</small></th>
+    <th class="num">M/M/c<br><small>Erlang-C</small></th>
+    <th class="num">G/G/1<br><small>Kingman</small></th><th>ความหมาย</th></tr></thead>
+  <tbody id="restab"></tbody>
+</table>
+<caption>คอลัมน์ G/G/c คือค่าที่ FlowLens ใช้จริง · คอลัมน์ G/G/1 คิดเสมือนว่าแยกคิวกันคนละโต๊ะ</caption>
+</div>
+
+<h3>ควรเปิดกี่โต๊ะ</h3>
+<div id="need"></div>
+
+<h2 id="charts">กราฟ</h2>
+
+<div class="grid g2">
+  <figure style="margin:0">
+    <div id="ch1"></div>
+    <figcaption>เวลารอเมื่อเปลี่ยนจำนวนโต๊ะ (λ และ E[S] คงที่)</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <div id="ch2"></div>
+    <figcaption>เวลารอเมื่อ ρ เปลี่ยน (c คงที่) — เส้นโค้งไม้ฮอกกี้</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <div id="ch3"></div>
+    <figcaption>สัดส่วนผู้ป่วยที่รอไม่เกิน t นาที</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <div id="ch4"></div>
+    <figcaption>การกระจายจำนวนคนในระบบ — แท่งแดงคือสถานะที่ทุกโต๊ะไม่ว่าง</figcaption>
+  </figure>
+</div>
+<div class="legend" style="margin-top:10px">
+  <span><i style="background:var(--s1)"></i>G/G/c (Sakasegawa)</span>
+  <span><i style="background:var(--s2)"></i>M/M/c</span>
+  <span><i style="background:var(--s4)"></i>เปอร์เซ็นไทล์ที่เลือก</span>
+</div>
+
+<h2 id="sens">ถ้าเปลี่ยนทีละอย่าง จะได้อะไร</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ถ้า…</th><th class="num">ρ ใหม่</th><th class="num">Wq ใหม่</th>
+    <th class="num">เปลี่ยนไป</th><th>อ่านผล</th></tr></thead>
+  <tbody id="senstab"></tbody>
+</table>
+<caption>ตารางนี้ช่วยตอบว่า "ลงแรงตรงไหนคุ้มที่สุด" — ดูจากคอลัมน์สุดท้าย</caption>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var PEAK = 7 * 60 + 30;
+
+  document.querySelectorAll('[data-u]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var u = FL.byId[b.dataset.u];
+      var lams = FL.unitLambdaAt(PEAK, 0);
+      document.getElementById('lam').value = (lams[u.id] || 1).toFixed(2);
+      document.getElementById('es').value = u.serviceMean;
+      document.getElementById('c').value = FL.serversAt(u, PEAK);
+      document.getElementById('cs2').value = (u.truth.serviceCv * u.truth.serviceCv).toFixed(2);
+      document.getElementById('ca2').value = 1;
+      calc();
+    });
+  });
+
+  function fmtMin(x) { return Number.isFinite(x) ? x.toFixed(2) : '∞'; }
+
+  function calc() {
+    var lam = Site.v('lam'), es = Site.v('es'), c = Site.v('c');
+    var ca2 = Site.v('ca2'), cs2 = Site.v('cs2');
+    var tgt = Site.v('tgt'), p = Site.v('pct'), rmax = Site.v('rmax');
+
+    Site.show('lam', lam.toFixed(2) + ' ราย/นาที');
+    Site.show('es', es.toFixed(1) + ' นาที');
+    Site.show('c', c + ' โต๊ะ');
+    Site.show('ca2', ca2.toFixed(2));
+    Site.show('cs2', cs2.toFixed(2));
+    Site.show('tgt', tgt + ' นาที');
+    Site.show('pct', 'p' + Math.round(p * 100));
+    Site.show('rmax', rmax.toFixed(2));
+    document.getElementById('lamHr').textContent = '= ' + (lam * 60).toFixed(0) + ' ราย/ชั่วโมง';
+    document.getElementById('muSub').textContent = 'μ = ' + (1 / es).toFixed(3) + ' ราย/นาที/โต๊ะ';
+
+    var a = lam * es, rho = a / c;
+    var C = Q.erlangC(c, a);
+    var wqG = Q.wqGGc(lam, es, c, ca2, cs2);
+    var wqM = Q.wqMMc(lam, es, c);
+    var wqK = Q.wqKingman(lam / c, es, ca2, cs2);
+    var pGlo = Q.wqPercentile(lam, es, c, p, ca2, cs2);
+    var sl = rho >= 1 ? 0 : Q.serviceLevel(lam, es, c, tgt);
+    document.getElementById('cSub').textContent =
+      'กำลังรวม ' + ((c * 60) / es).toFixed(0) + ' ราย/ชั่วโมง';
+
+    function put(id, v, cls, d) {
+      var e = document.getElementById(id);
+      e.className = 'stat' + (cls ? ' ' + cls : '');
+      e.querySelector('.v').innerHTML = v;
+      if (d != null) { var dd = e.querySelector('.d'); if (dd) dd.textContent = d; }
+    }
+    put('o_a', a.toFixed(2));
+    put('o_rho', rho.toFixed(3), rho >= 1 ? 'is-bad' : rho > rmax ? 'is-warn' : 'is-ok',
+        rho >= 1 ? 'ไม่มีสมดุล' : rho > rmax ? 'เกินเพดาน ' + rmax.toFixed(2) : 'อยู่ในเกณฑ์');
+    put('o_pw', (C * 100).toFixed(1) + '%');
+    put('o_sl', (sl * 100).toFixed(1) + '%', sl >= .9 ? 'is-ok' : sl >= .8 ? 'is-warn' : 'is-bad',
+        'รอ ≤ ' + tgt + ' นาที');
+
+    /* ตารางผล */
+    var lq = Number.isFinite(wqG) ? lam * wqG : Infinity;
+    var rows = [
+      ['Wq เวลารอเฉลี่ย (นาที)', wqG, wqM, wqK, 'เวลาที่ยืนรอก่อนได้รับบริการ'],
+      ['W เวลาในระบบ (นาที)', wqG + es, wqM + es, wqK + es, 'รอ + รับบริการ'],
+      ['Lq คนในคิว', Number.isFinite(wqG) ? lam * wqG : Infinity,
+        Number.isFinite(wqM) ? lam * wqM : Infinity,
+        Number.isFinite(wqK) ? (lam / c) * wqK : Infinity, 'จากกฎของลิตเติล Lq = λWq'],
+      ['L คนในระบบ', Number.isFinite(wqG) ? lam * (wqG + es) : Infinity,
+        Number.isFinite(wqM) ? lam * (wqM + es) : Infinity,
+        Number.isFinite(wqK) ? (lam / c) * (wqK + es) : Infinity, 'รวมคนที่กำลังรับบริการ'],
+      ['Wq ที่ p' + Math.round(p * 100) + ' (นาที)', pGlo, NaN, NaN,
+        'ค่าที่เป้าหมายขององค์กรมักเขียนถึง'],
+    ];
+    document.getElementById('restab').innerHTML = rows.map(function (r) {
+      return '<tr><th>' + r[0] + '</th>' +
+        '<td class="num"><strong>' + fmtMin(r[1]) + '</strong></td>' +
+        '<td class="num">' + (Number.isNaN(r[2]) ? '—' : fmtMin(r[2])) + '</td>' +
+        '<td class="num">' + (Number.isNaN(r[3]) ? '—' : fmtMin(r[3])) + '</td>' +
+        '<td style="font-size:.85rem;color:var(--ink-soft)">' + r[4] + '</td></tr>';
+    }).join('');
+
+    /* ควรเปิดกี่โต๊ะ */
+    var nRho = Q.minServersForRho(lam, es, rmax);
+    var nWait = Q.minServersForWait(lam, es, tgt, { p: p, ca2: ca2, cs2: cs2 });
+    var need = Math.max(nRho, nWait);
+    var gap = need - c;
+    document.getElementById('need').innerHTML =
+      '<div class="' + (gap > 0 ? 'warnbox' : 'tip') + '">' +
+      '<div class="stats" style="margin:0 0 10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">' +
+      '<div class="stat"><div class="k">จากเพดาน ρ ≤ ' + rmax.toFixed(2) + '</div><div class="v">' + nRho + '</div></div>' +
+      '<div class="stat"><div class="k">จากเป้า p' + Math.round(p * 100) + ' ≤ ' + tgt + ' น.</div><div class="v">' + nWait + '</div></div>' +
+      '<div class="stat"><div class="k">สรุปต้องมี</div><div class="v">' + need + '</div></div>' +
+      '<div class="stat' + (gap > 0 ? ' is-bad' : ' is-ok') + '"><div class="k">ส่วนต่างจากที่เปิด</div><div class="v">' +
+        (gap > 0 ? '+' + gap : gap) + '</div></div>' +
+      '</div>' +
+      (gap > 0
+        ? '<strong>ต้องเพิ่มอีก ' + gap + ' โต๊ะ</strong> — เกณฑ์ที่เข้มกว่าคือ ' +
+          (nRho >= nWait ? 'เพดานการใช้กำลัง' : 'เป้าเวลารอ')
+        : '<strong>กำลังเพียงพอ</strong>' +
+          (gap < 0 ? ' และยังลดได้อีก ' + (-gap) + ' โต๊ะโดยยังผ่านเกณฑ์' : '')) +
+      '</div>';
+
+    /* คำเตือนบนสุด */
+    document.getElementById('verdict').innerHTML = rho >= 1
+      ? '<div class="warnbox"><strong>ρ = ' + rho.toFixed(3) + ' ≥ 1 — ระบบไม่มีสมดุล</strong><br>' +
+        'สูตรทุกตัวให้ค่า ∞ เพราะไม่มีสถานะคงตัว ในความเป็นจริงคิวจะยาวขึ้น ' +
+        'ด้วยอัตรา ' + ((lam - c / es) * 60).toFixed(0) + ' รายต่อชั่วโมง จนกว่าคนจะหยุดมา ' +
+        '— ต้องใช้แบบจำลองของไหลหรือการจำลองแทน (<a href="../theory/09-nonstationary.html">บทที่ 9</a>)</div>'
+      : '';
+
+    /* กราฟ 1: Wq vs c */
+    var g1 = [], m1 = [], p1 = [];
+    var cLo = Math.max(1, Math.ceil(a) - 2), cHi = cLo + 16;
+    for (var k = cLo; k <= cHi; k++) {
+      g1.push([k, Math.min(Q.wqGGc(lam, es, k, ca2, cs2), 120)]);
+      m1.push([k, Math.min(Q.wqMMc(lam, es, k), 120)]);
+      p1.push([k, Math.min(Q.wqPercentile(lam, es, k, p, ca2, cs2), 120)]);
+    }
+    Chart.mount('ch1', Chart.lineChart({
+      width: 480, height: 230, x0: cLo, x1: cHi, y0: 0, y1: 120,
+      xlabel: 'จำนวนโต๊ะ c', ylabel: 'นาที',
+      xfmt: function (v) { return String(Math.round(v)); },
+      series: [{ points: m1, color: 'var(--s2)', width: 1.8, dash: '4 3' },
+               { points: p1, color: 'var(--s4)', width: 1.8 },
+               { points: g1, color: 'var(--s1)', width: 2.6, dots: 2.4 }],
+      rules: [{ x: c, color: 'var(--ink-faint)', label: 'c = ' + c },
+              { y: tgt, color: 'var(--ok)', label: 'เป้า ' + tgt + ' น.' }],
+      label: 'เวลารอเทียบจำนวนโต๊ะ',
+    }));
+
+    /* กราฟ 2: Wq vs rho */
+    var g2 = [], m2 = [];
+    for (var r = 0.3; r <= 0.985; r += 0.005) {
+      var l2 = (r * c) / es;
+      g2.push([r, Math.min(Q.wqGGc(l2, es, c, ca2, cs2), 120)]);
+      m2.push([r, Math.min(Q.wqMMc(l2, es, c), 120)]);
+    }
+    Chart.mount('ch2', Chart.lineChart({
+      width: 480, height: 230, x0: 0.3, x1: 0.99, y0: 0, y1: 120,
+      xlabel: 'ρ', ylabel: 'Wq (นาที)',
+      xfmt: function (v) { return v.toFixed(2); },
+      series: [{ points: m2, color: 'var(--s2)', width: 1.8, dash: '4 3' },
+               { points: g2, color: 'var(--s1)', width: 2.6 }],
+      rules: [{ x: Math.min(rho, 0.985), color: 'var(--ink-faint)',
+                label: 'ρ = ' + rho.toFixed(2) }],
+      label: 'เวลารอเทียบ ρ',
+    }));
+
+    /* กราฟ 3: service level */
+    var g3 = [];
+    for (var t = 0; t <= 60; t += 0.5) {
+      g3.push([t, rho >= 1 ? 0 : Q.serviceLevel(lam, es, c, t) * 100]);
+    }
+    Chart.mount('ch3', Chart.lineChart({
+      width: 480, height: 230, x0: 0, x1: 60, y0: 0, y1: 100,
+      xlabel: 'รอไม่เกิน t นาที', ylabel: '%',
+      series: [{ points: g3, color: 'var(--s3)', width: 2.4, fill: true }],
+      rules: [{ x: tgt, color: 'var(--ink-faint)', label: 't = ' + tgt },
+              { y: p * 100, color: 'var(--warn)', label: 'p' + Math.round(p * 100) }],
+      label: 'เส้นโค้ง service level',
+    }));
+
+    /* กราฟ 4: p(n) */
+    var nMax = Math.min(Math.max(c + 16, 20), 46), vals = [], cols = [], labs = [];
+    for (var n = 0; n <= nMax; n++) {
+      var pn = rho >= 1 ? 0 : Q.pnMMc(lam, es, c, n);
+      vals.push(Number.isFinite(pn) ? pn : 0);
+      cols.push(n >= c ? 'var(--s2)' : 'var(--s1)');
+      labs.push(n % 5 === 0 ? String(n) : '');
+    }
+    Chart.mount('ch4', Chart.barChart({
+      width: 480, height: 230, labels: labs,
+      series: [{ values: vals, colors: cols }],
+      ylabel: 'p(n)', xlabel: 'คนในระบบ n',
+      yfmt: function (v) { return v.toFixed(2); },
+      margin: { t: 12, r: 14, b: 40, l: 46 },
+      label: 'การกระจายจำนวนคนในระบบ',
+    }));
+
+    /* ตารางความไว */
+    function row(label, nl, nes, nc, nca, ncs, note) {
+      var rr = (nl * nes) / nc;
+      var w = Q.wqGGc(nl, nes, nc, nca, ncs);
+      var base = wqG;
+      var d = (Number.isFinite(w) && Number.isFinite(base) && base > 0)
+        ? ((w - base) / base) * 100 : NaN;
+      return '<tr><th>' + label + '</th>' +
+        '<td class="num">' + rr.toFixed(3) + '</td>' +
+        '<td class="num"><strong>' + fmtMin(w) + '</strong></td>' +
+        '<td class="num">' + (Number.isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(0) + '%' : '—') + '</td>' +
+        '<td style="font-size:.85rem;color:var(--ink-soft)">' + note + '</td></tr>';
+    }
+    document.getElementById('senstab').innerHTML =
+      row('เพิ่มโต๊ะ 1 ตัว', lam, es, c + 1, ca2, cs2, 'ค่าใช้จ่ายตรงไปตรงมา ได้ผลเร็วที่สุด') +
+      row('ลดเวลาบริการ 10%', lam, es * 0.9, c, ca2, cs2, 'ได้ผลสองต่อ เพราะ ρ ลดลงด้วย') +
+      row('ลด cs² ลงครึ่งหนึ่ง', lam, es, c, ca2, cs2 / 2, 'standard work — ไม่เพิ่มคน') +
+      row('ลด ca² ลงครึ่งหนึ่ง', lam, es, c, ca2 / 2, cs2, 'ระบบนัดหมาย กระจายการมาถึง') +
+      row('คนมาเพิ่ม 10%', lam * 1.1, es, c, ca2, cs2, 'ทดสอบความทนทานของแผน') +
+      row('คนมาเพิ่ม 20%', lam * 1.2, es, c, ca2, cs2, 'วันที่คนล้น');
+  }
+
+  Site.bind(['lam', 'es', 'c', 'ca2', 'cs2', 'tgt', 'pct', 'rmax'], calc);
+  document.addEventListener('themechange', calc);
+})();
+</script>
+</body>
+</html>

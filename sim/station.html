@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องทดลอง — จุดบริการเดี่ยว</title>
+<meta name="description" content="ดูคิวเกิดขึ้นทีละคนแบบเคลื่อนไหว ปรับ λ E[S] c และความผันแปร แล้วตรวจกฎของลิตเติลกับเส้นโค้งของ Kingman แบบสด">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<style>
+  .simwrap { background: var(--bg-sunken); border: 1px solid var(--line);
+             border-radius: var(--radius-s); overflow-x: auto; }
+  #stage { display: block; }
+  .clock { font-family: var(--mono); font-size: 1.35rem; font-weight: 600;
+           font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body data-page="sim/station.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">ห้องทดลอง</p>
+  <h1>จุดบริการเดี่ยว</h1>
+  <p class="lede">
+    คิวหนึ่งแถว โต๊ะไม่กี่ตัว แต่เห็นทุกอย่างที่ทฤษฎีพูดถึง —
+    คิวที่โตขึ้นจากความบังเอิญ เวลาว่างที่เอากลับมาใช้ไม่ได้
+    และกฎของลิตเติลที่เป็นจริงเสมอ
+  </p>
+</div>
+
+<div class="lab" style="margin-top:0">
+  <header>
+    <span class="clock" id="clock">0.0 นาที</span>
+    <span class="pill" id="pill">พร้อมเริ่ม</span>
+    <span class="hint">จุดสีแดงคือคนที่รออยู่ · ช่องด้านขวาคือโต๊ะบริการ</span>
+  </header>
+  <div class="body">
+    <div class="btnrow">
+      <button class="btn primary" id="btnPlay">▶ เริ่ม</button>
+      <button class="btn" id="btnReset">เริ่มใหม่</button>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <label for="spd" style="font-size:.85rem;color:var(--ink-soft)">ความเร็ว</label>
+        <input type="range" id="spd" min="2" max="60" step="2" value="14" style="width:110px">
+        <span class="val" id="spdV" style="font-family:var(--mono);font-size:.82rem"></span>
+      </span>
+    </div>
+
+    <div class="simwrap"><canvas id="stage" width="900" height="260"></canvas></div>
+
+    <div class="lab-split" style="margin-top:18px">
+      <div>
+        <div class="grid g2" style="margin:0 0 10px">
+          <div class="ctrl" style="margin:0">
+            <label for="lam"><span>λ อัตราคนมา</span><span class="val" id="lamV"></span></label>
+            <input type="range" id="lam" min="0.05" max="2" step="0.01" value="0.40">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="es"><span>E[S] เวลาบริการ</span><span class="val" id="esV"></span></label>
+            <input type="range" id="es" min="0.5" max="12" step="0.1" value="4.2">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="c"><span>c จำนวนโต๊ะ</span><span class="val" id="cV"></span></label>
+            <input type="range" id="c" min="1" max="8" step="1" value="2">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="cs2"><span>cs² เวลาบริการ</span><span class="val" id="cs2V"></span></label>
+            <input type="range" id="cs2" min="0" max="2.5" step="0.05" value="1">
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label for="ca2"><span>ca² การมาถึง</span><span class="val" id="ca2V"></span></label>
+            <input type="range" id="ca2" min="0" max="2.5" step="0.05" value="1">
+            <div class="sub">0 = มาเป๊ะทุก 1/λ นาที · 1 = Poisson</div>
+          </div>
+          <div class="ctrl" style="margin:0">
+            <label class="lbl"><span>ρ ที่ได้</span><span class="val" id="rhoNow"></span></label>
+            <div id="rhoBar"></div>
+            <div class="sub" id="rhoNote"></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="btn" data-p="perfect">ทุกอย่างเป๊ะ (D/D/c)</button>
+          <button class="btn" data-p="poisson">สุ่มปกติ (M/M/c)</button>
+          <button class="btn" data-p="edge">ขอบเหว ρ = 0.97</button>
+        </div>
+      </div>
+      <div>
+        <div class="boxtitle">กฎของลิตเติล — ตรวจสด</div>
+        <div class="stats" style="margin:0;grid-template-columns:repeat(2,1fr)">
+          <div class="stat"><div class="k">L̄ จากพื้นที่</div><div class="v" id="kL">—</div></div>
+          <div class="stat"><div class="k">λ̄ × W̄</div><div class="v" id="kLW">—</div></div>
+          <div class="stat"><div class="k">คิวตอนนี้</div><div class="v" id="kQ">0</div></div>
+          <div class="stat"><div class="k">เสร็จแล้ว</div><div class="v" id="kN">0</div></div>
+        </div>
+        <div class="boxtitle" style="margin-top:16px">เวลารอ</div>
+        <div class="stats" style="margin:0;grid-template-columns:repeat(2,1fr)">
+          <div class="stat"><div class="k">จำลองได้</div><div class="v" id="kWq">—</div></div>
+          <div class="stat"><div class="k">สูตรทำนาย</div><div class="v" id="kWqT">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <figure style="margin:20px 0 0">
+      <div id="qchart"></div>
+      <figcaption>ความยาวคิวตามเวลา — สังเกตว่ามันไม่นิ่ง แม้ค่าเฉลี่ยจะนิ่ง
+        ยิ่ง ρ สูง ยอดยิ่งแหลมและนานกว่าจะลง</figcaption>
+    </figure>
+  </div>
+</div>
+
+<h2 id="watch">สามสิ่งที่ควรลองดู</h2>
+
+<ol class="steps">
+  <li><span class="st">ตั้ง ca² = 0 และ cs² = 0 แล้วดัน ρ ขึ้นไป 0.95</span>
+    คิวจะไม่เกิดเลยแม้แต่คนเดียว ทั้งที่โต๊ะทำงาน 95% ของเวลา —
+    นี่คือข้อพิสูจน์ว่าคิวไม่ได้เกิดจากการใช้กำลังสูง
+    (<a href="../theory/03-variability.html">บทที่ 3</a>)</li>
+  <li><span class="st">ตั้ง ρ ไว้ที่ 0.85 แล้วเลื่อน cs² จาก 0 ขึ้นไป 2.5</span>
+    ρ ไม่เปลี่ยนเลย แต่เวลารอเพิ่มหลายเท่า — นี่คือพจน์ V ของสมการ VUT</li>
+  <li><span class="st">เทียบ c = 1 กับ c = 4 ที่ ρ เท่ากัน</span>
+    ตั้ง λ ให้ ρ เท่าเดิมทั้งสองกรณี แล้วดูว่าเวลารอต่างกันกี่เท่า —
+    นี่คือผลของการรวมคิว (<a href="../theory/04-mmc.html">บทที่ 4</a>)</li>
+</ol>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+  var css = getComputedStyle(document.documentElement);
+  function C(n) { return css.getPropertyValue(n).trim() || '#888'; }
+
+  var sim = null, playing = false, last = 0, hist = [], T_END = 100000;
+
+  function readCfg() {
+    var o = {
+      lam: Site.v('lam'), es: Site.v('es'), c: Site.v('c'),
+      cs2: Site.v('cs2'), ca2: Site.v('ca2'),
+    };
+    Site.show('lam', o.lam.toFixed(2) + ' /นาที');
+    Site.show('es', o.es.toFixed(1) + ' นาที');
+    Site.show('c', o.c + ' โต๊ะ');
+    Site.show('cs2', o.cs2.toFixed(2));
+    Site.show('ca2', o.ca2.toFixed(2));
+    Site.show('spd', Site.v('spd') + ' นาที/วิ');
+    var rho = (o.lam * o.es) / o.c;
+    document.getElementById('rhoNow').textContent = rho.toFixed(3);
+    Chart.mount('rhoBar', Chart.utilBar(rho, 0.85));
+    document.getElementById('rhoNote').textContent =
+      rho >= 1 ? 'ไม่มีสมดุล — คิวจะโตไม่หยุด'
+      : rho > 0.85 ? 'เกินเพดาน 0.85' : 'อยู่ในเกณฑ์';
+    return o;
+  }
+
+  function build() {
+    var o = readCfg();
+    var mean = 1 / o.lam;
+    sim = new DES.Sim({
+      stations: [{ id: 'S', name: 'จุดบริการ', serviceMean: o.es,
+                   scv: Math.max(o.cs2, 0.0001), servers: o.c }],
+      routes: [{ from: 'ARRIVAL', to: 'S', p: 1 }, { from: 'S', to: 'EXIT', p: 1 }],
+      interarrival: o.ca2 <= 0.001
+        ? function () { return mean; }
+        : function (rand) { return Q.rsvc(rand, mean, o.ca2); },
+      tStart: 0, tEnd: T_END, seed: 2026,
+    });
+    hist = [];
+    draw(); panel();
+  }
+
+  function draw() {
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = C('--bg-sunken'); ctx.fillRect(0, 0, W, H);
+    if (!sim) return;
+    var s = sim.st.S, t = sim.t;
+
+    /* ทางเดินคิว */
+    ctx.strokeStyle = C('--line'); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(20, 150); ctx.lineTo(640, 150); ctx.stroke();
+    ctx.fillStyle = C('--ink-faint'); ctx.font = '12px system-ui'; ctx.textAlign = 'left';
+    ctx.fillText('← คนมาใหม่ต่อท้ายตรงนี้', 20, 178);
+
+    /* คนรอ */
+    var q = s.queue.length;
+    var PER_ROW = 60, MAX_SHOW = 180;
+    var n = Math.min(q, MAX_SHOW);
+    ctx.fillStyle = q > 25 ? C('--bad') : q > 8 ? C('--warn') : C('--s2');
+    for (var i = 0; i < n; i++) {
+      var col = i % PER_ROW, row = Math.floor(i / PER_ROW);
+      ctx.beginPath();
+      ctx.arc(630 - col * 10.2, 150 - row * 18, 4, 0, 6.2832);
+      ctx.fill();
+    }
+    if (q > MAX_SHOW) {
+      ctx.fillStyle = C('--ink-soft'); ctx.font = '600 12px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('+' + (q - MAX_SHOW) + ' คน', 24, 80);
+    }
+    ctx.fillStyle = C('--ink'); ctx.font = '600 13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('คิว: ' + q + ' คน', 330, 112);
+
+    /* โต๊ะบริการ */
+    var cNum = s.serversNow(t);
+    var bw = 110, bh = 34, bx = 690;
+    for (var k = 0; k < cNum; k++) {
+      var by = 150 - ((cNum - 1) / 2) * 44 + k * 44;
+      var rec = s.active[k];
+      ctx.fillStyle = rec ? C('--accent-soft') : C('--bg-elev');
+      ctx.strokeStyle = rec ? C('--accent') : C('--line');
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      var r = 8;
+      ctx.moveTo(bx + r, by - bh / 2);
+      ctx.arcTo(bx + bw, by - bh / 2, bx + bw, by + bh / 2, r);
+      ctx.arcTo(bx + bw, by + bh / 2, bx, by + bh / 2, r);
+      ctx.arcTo(bx, by + bh / 2, bx, by - bh / 2, r);
+      ctx.arcTo(bx, by - bh / 2, bx + bw, by - bh / 2, r);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = C('--ink-soft'); ctx.font = '11px system-ui'; ctx.textAlign = 'left';
+      ctx.fillText('โต๊ะ ' + (k + 1), bx + 9, by + 4);
+
+      if (rec) {
+        var prog = Math.min(Math.max((t - rec.start) / (rec.end - rec.start), 0), 1);
+        ctx.fillStyle = C('--bg-sunken');
+        ctx.fillRect(bx + 56, by - 4, 46, 8);
+        ctx.fillStyle = C('--s1');
+        ctx.fillRect(bx + 56, by - 4, 46 * prog, 8);
+        ctx.strokeStyle = C('--line'); ctx.lineWidth = 1;
+        ctx.strokeRect(bx + 56, by - 4, 46, 8);
+      } else {
+        ctx.fillStyle = C('--ink-faint'); ctx.font = '10px system-ui';
+        ctx.fillText('ว่าง', bx + 60, by + 4);
+      }
+      /* เส้นเข้าโต๊ะ */
+      ctx.strokeStyle = C('--line'); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(648, 150); ctx.lineTo(bx - 4, by); ctx.stroke();
+    }
+    ctx.fillStyle = C('--ink-faint'); ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('เสร็จแล้วออกทางนี้ →', 820, 240);
+  }
+
+  function panel() {
+    if (!sim) return;
+    var s = sim.st.S, o = { lam: Site.v('lam'), es: Site.v('es'), c: Site.v('c'),
+                            cs2: Site.v('cs2'), ca2: Site.v('ca2') };
+    document.getElementById('clock').textContent = sim.t.toFixed(0) + ' นาที';
+    document.getElementById('kQ').textContent = s.queue.length;
+    document.getElementById('kN').textContent = Q.fmt.i(sim.finished.length);
+
+    var area = 0;
+    sim.finished.forEach(function (e) { area += e.tat; });
+    var L = sim.t > 0 ? area / sim.t : 0;
+    var lamObs = sim.t > 0 ? sim.finished.length / sim.t : 0;
+    var W = sim.finished.length ? area / sim.finished.length : 0;
+    document.getElementById('kL').textContent = L.toFixed(2);
+    document.getElementById('kLW').textContent = (lamObs * W).toFixed(2);
+
+    var wq = Q.stats(s.waits);
+    var th = Q.wqGGc(o.lam, o.es, o.c, o.ca2, o.cs2);
+    document.getElementById('kWq').innerHTML = s.waits.length
+      ? wq.mean.toFixed(2) + '<span class="u">น.</span>' : '—';
+    document.getElementById('kWqT').innerHTML = Number.isFinite(th)
+      ? th.toFixed(2) + '<span class="u">น.</span>' : '∞';
+
+    if (hist.length > 1) {
+      Chart.mount('qchart', Chart.lineChart({
+        width: 760, height: 210, x0: hist[0][0], x1: Math.max(hist[hist.length - 1][0], 10),
+        y0: 0, xlabel: 'นาที', ylabel: 'คนในคิว',
+        xfmt: function (v) { return String(Math.round(v)); },
+        series: [{ points: hist, color: 'var(--s2)', width: 1.8, fill: true }],
+        rules: [{ y: Number.isFinite(th) ? o.lam * th : 0, color: 'var(--s1)',
+                  label: 'Lq ที่สูตรทำนาย' }],
+        label: 'ความยาวคิวตามเวลา',
+      }));
+    }
+  }
+
+  function tick(ts) {
+    if (!playing) return;
+    var dt = last ? Math.min((ts - last) / 1000, 0.1) : 0;
+    last = ts;
+    var target = sim.t + dt * Site.v('spd');
+    /* เก็บประวัติคิวทุก ๆ 1 นาทีจำลอง */
+    while (sim.t < target) {
+      var nxt = Math.min(sim.t + 1, target);
+      sim.runUntil(nxt);
+      hist.push([sim.t, sim.st.S.queue.length]);
+      if (hist.length > 600) hist.shift();
+    }
+    draw(); panel();
+    requestAnimationFrame(tick);
+  }
+
+  function start() {
+    playing = true; last = 0;
+    document.getElementById('btnPlay').textContent = '⏸ หยุด';
+    document.getElementById('pill').textContent = 'กำลังเดิน';
+    document.getElementById('pill').className = 'pill acc';
+    requestAnimationFrame(tick);
+  }
+  function stop() {
+    playing = false;
+    document.getElementById('btnPlay').textContent = '▶ เริ่ม';
+    document.getElementById('pill').textContent = 'หยุดชั่วคราว';
+    document.getElementById('pill').className = 'pill';
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function () {
+    if (playing) stop(); else start();
+  });
+  document.getElementById('btnReset').addEventListener('click', function () {
+    stop(); build();
+    document.getElementById('pill').textContent = 'พร้อมเริ่ม';
+    document.getElementById('pill').className = 'pill';
+  });
+
+  var P = {
+    perfect: { lam: 0.45, es: 4.2, c: 2, cs2: 0, ca2: 0 },
+    poisson: { lam: 0.40, es: 4.2, c: 2, cs2: 1, ca2: 1 },
+    edge:    { lam: 0.46, es: 4.2, c: 2, cs2: 1, ca2: 1 },
+  };
+  document.querySelectorAll('[data-p]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var p = P[b.dataset.p];
+      for (var k in p) document.getElementById(k).value = p[k];
+      var was = playing; stop(); build(); if (was) start();
+    });
+  });
+
+  Site.bind(['lam', 'es', 'c', 'cs2', 'ca2'], function () {
+    var was = playing; stop(); build(); if (was) start();
+  });
+  document.getElementById('spd').addEventListener('input', function () {
+    Site.show('spd', Site.v('spd') + ' นาที/วิ');
+  });
+
+  document.addEventListener('themechange', function () {
+    css = getComputedStyle(document.documentElement); draw(); panel();
+  });
+  build();
+})();
+</script>
+</body>
+</html>

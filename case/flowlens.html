@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>กรณีศึกษา — FlowLens ทีละขั้น</title>
+<meta name="description" content="เดินตามการวิเคราะห์คอขวดของระบบ FlowLens ตั้งแต่ข้อมูลดิบ ผ่าน Lean, Queueing, TOC, Six Sigma จนถึงข้อเสนอที่ยืนยันด้วยการจำลอง พร้อมตรวจกับเฉลย">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="case/flowlens.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">กรณีศึกษา</p>
+  <h1>FlowLens ทีละขั้น</h1>
+  <p class="lede">
+    จากไฟล์ Excel หนึ่งไฟล์ ถึงข้อเสนอที่บอกได้ว่า "เพิ่ม 2 โต๊ะ ช่วง 06:30–09:00
+    ลด TAT p90 ได้ 24 นาที ค่าใช้จ่าย 2,250 บาท/วัน" — นี่คือเส้นทางทั้งหมด
+    และทฤษฎีที่ถูกใช้ในแต่ละขั้น
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="system">0. ระบบที่กำลังวิเคราะห์</h2>
+
+<p>
+  <strong>FlowLens</strong> คือโปรแกรมวิเคราะห์คอขวดงานตรวจเลือดโรงพยาบาล
+  ทำงาน offline ทั้งหมด รับ event log การใช้บริการ (CSV/Excel)
+  กับไฟล์ config ที่อธิบายโครงสร้างหน่วยบริการ
+  แล้วตอบสามคำถาม: <strong>คอขวดอยู่ไหน · เป็นเพราะอะไร · แก้แล้วได้กี่นาที</strong>
+</p>
+
+<p>
+  ชุดข้อมูลที่ใช้ในหน้านี้คือ <code>samples/demo_basic</code> —
+  ข้อมูลสังเคราะห์ที่มี<strong>เฉลยกำกับ</strong> (seed 42) จึงใช้ตรวจได้ว่า
+  ระบบชี้คอขวดถูกจุดหรือไม่
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="k">ช่วงข้อมูล</div><div class="v">20<span class="u">วันทำการ</span></div><div class="d">2026-01-05 ถึง 2026-01-30</div></div>
+  <div class="stat"><div class="k">ผู้ป่วย</div><div class="v">8,329</div><div class="d">416.45 ราย/วัน</div></div>
+  <div class="stat"><div class="k">หน่วยบริการ</div><div class="v">8</div><div class="d">3 ขั้น pre/analytic/post</div></div>
+  <div class="stat"><div class="k">เวลาเปิด</div><div class="v">06:30<span class="u">–16:30</span></div><div class="d">600 นาที/วัน</div></div>
+</div>
+
+<figure class="wide">
+  <div id="map0"></div>
+  <figcaption>โครงสร้างระบบตาม <code>config.yaml</code> — ตัวเลขในกล่องคือจำนวนโต๊ะช่วงพีคและเวลาบริการเฉลี่ย</figcaption>
+</figure>
+
+<h2 id="step1">1. นำเข้าและตรวจคุณภาพข้อมูล</h2>
+
+<p>
+  ก่อนทฤษฎีคิวจะมีความหมาย ข้อมูลต้องเชื่อถือได้ก่อน
+  ขั้นนี้มักเป็นงานที่กินเวลามากที่สุดของโครงการจริง
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>สิ่งที่ตรวจ</th><th>ทำไมต้องตรวจ</th></tr></thead>
+  <tbody>
+    <tr><th>ปี พ.ศ. ปน ค.ศ.</th><td>ข้อมูลโรงพยาบาลไทยมักบันทึกเป็น พ.ศ. — ถ้าแปลงผิด เวลาจะเพี้ยนไป 543 ปี
+      (<code>buddhist_year: true</code> ใน config)</td></tr>
+    <tr><th>เวลาจบก่อนเวลาเริ่ม</th><td>เกิดจากการบันทึกย้อนหลัง → ให้เวลาบริการติดลบ</td></tr>
+    <tr><th>แถวซ้ำ</th><td>ทำให้ λ สูงเกินจริง และ ρ ผิดตาม</td></tr>
+    <tr><th>หน่วยที่ไม่รู้จัก</th><td>มีชื่อหน่วยที่ไม่อยู่ใน config → งานหายไปจากสมดุลการไหล</td></tr>
+    <tr><th>รหัสผู้ป่วย</th><td>ถูก hash ด้วย salt ประจำโปรเจกต์ทันที ตามข้อกำหนด PDPA</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>ปัญหาที่พบบ่อยที่สุด: ไม่มีเวลาเริ่มให้บริการ</h3>
+
+<p>
+  ระบบ HIS ส่วนใหญ่บันทึกแค่ "เวลาเข้าคิว" กับ "เวลาเสร็จ"
+  ไม่มี "เวลาที่เริ่มได้รับบริการ" ซึ่งเป็นค่าที่จำเป็นสำหรับแยก
+  <strong>เวลารอ</strong> ออกจาก <strong>เวลาบริการ</strong>
+</p>
+
+<p>
+  FlowLens ประมาณค่านี้ด้วยสามวิธีแล้ว<strong>ตรวจไขว้กัน</strong>
+  ถ้าสามวิธีให้ผลต่างกันมาก แปลว่าข้อมูลไม่พอจะสรุป และระบบจะเตือน
+  แทนที่จะรายงานตัวเลขที่ดูดีแต่ผิด
+</p>
+
+<h2 id="step2">2. M1 — ภาพรวมเชิงพรรณนา</h2>
+
+<p>ขั้นแรกคือดูว่าเวลาของผู้ป่วยหนึ่งรายหมดไปกับอะไรบ้าง</p>
+
+<figure>
+  <div id="tatBreak"></div>
+  <figcaption>องค์ประกอบของ TAT เฉลี่ย 65.9 นาที — แยกเป็นเวลาบริการที่สร้างคุณค่า
+    เวลาบริการที่ไม่สร้างคุณค่า และเวลารอ</figcaption>
+</figure>
+
+<div class="example">
+  <header>ตรวจสอบตัวเลขด้วยมือ — ประกอบ TAT ขึ้นมาใหม่</header>
+  <div class="body">
+    <p>ถ้าทฤษฎีถูก เวลาบริการรวม + เวลารอรวม ต้องเท่ากับ TAT เฉลี่ยพอดี</p>
+    <div class="calc"><span class="cm">เวลาบริการตามเส้นทาง (ถ่วงด้วยความน่าจะเป็น)</span>
+REG       2.4
+PHLEB     4.2
+TRANSPORT 4.0
+RECEIVE   3.0
+CHEM      15.0 × 0.62 =  9.30
+HEMA       8.0 × 0.38 =  3.04
+VERIFY    2.0
+RESULT    0.6
+                        ───────
+รวมเวลาบริการ           = 28.54 นาที
+
+<span class="cm">เวลารอเฉลี่ยรายหน่วย (ถ่วงด้วยความน่าจะเป็นเช่นกัน)</span>
+REG        3.951
+PHLEB     31.385   ← 84% ของทั้งหมด
+RECEIVE    0.325
+CHEM       0.082 × 0.62 = 0.051
+HEMA       0.410 × 0.38 = 0.156
+VERIFY     1.480
+RESULT     0.070
+                        ───────
+รวมเวลารอ               = 37.42 นาที
+
+TAT = 28.54 + 37.42 = <span class="hl">65.96 นาที</span>
+ค่าจริงจาก answer_key   = <span class="hl">65.90 นาที</span>  ✓ ตรง</div>
+    <p style="margin-bottom:0">
+      การตรวจแบบนี้คือสิ่งแรกที่ควรทำกับผลวิเคราะห์ใด ๆ
+      ถ้าประกอบกลับไม่ได้ แปลว่ามีงานบางส่วนหายไปจากการนับ
+    </p>
+  </div>
+</div>
+
+<h2 id="step3">3. M2 — มุมมอง Lean</h2>
+
+<p>
+  Lean ถามคำถามเดียว: <strong>เวลาที่ผู้ป่วยเสียไป มีกี่เปอร์เซ็นต์ที่สร้างคุณค่าให้เขาจริง ๆ</strong>
+  <code>config.yaml</code> ระบุไว้ว่าหน่วยไหนเป็น value-added
+</p>
+
+<div class="stats">
+  <div class="stat is-ok"><div class="k">เวลาที่สร้างคุณค่า</div><div class="v">18.5<span class="u">นาที</span></div><div class="d">เจาะเลือด · วิเคราะห์ · ทวนสอบ</div></div>
+  <div class="stat is-warn"><div class="k">บริการแต่ไม่สร้างคุณค่า</div><div class="v">10.0<span class="u">นาที</span></div><div class="d">ลงทะเบียน · ขนส่ง · ปั่นแยก · ส่งผล</div></div>
+  <div class="stat is-bad"><div class="k">เวลารอ</div><div class="v">37.4<span class="u">นาที</span></div><div class="d">ไม่สร้างคุณค่าใด ๆ เลย</div></div>
+  <div class="stat is-bad"><div class="k">Process Cycle Efficiency</div><div class="v">28%</div><div class="d">= 18.5 ÷ 65.9</div></div>
+</div>
+
+<div class="note">
+  <p style="margin-bottom:0">
+    ตัวเลข 28% ฟังดูแย่ แต่เป็นค่าปกติของงานบริการ
+    ประเด็นไม่ได้อยู่ที่ตัวเลขสัมบูรณ์ แต่อยู่ที่ว่า
+    <strong>56.8% ของเวลาผู้ป่วยคือการรอ และ 84% ของการรอนั้นเกิดที่หน่วยเดียว</strong>
+    — ซึ่งแปลว่ามีเป้าให้ยิงเพียงเป้าเดียว
+  </p>
+</div>
+
+<h2 id="step4">4. M3 — ทฤษฎีคิว</h2>
+
+<p>
+  ขั้นนี้คือหัวใจ นำ λ ที่วัดได้รายช่วง 15 นาที เวลาบริการเฉลี่ย ca² cs²
+  และจำนวนโต๊ะที่เปิดจริง มาคำนวณ ρ, Wq และจำนวนโต๊ะที่ควรมี
+  (ทฤษฎีจาก <a href="../theory/05-ggc.html">บทที่ 5</a> และ
+  <a href="../theory/08-staffing.html">บทที่ 8</a>)
+</p>
+
+<div class="tablewrap">
+<table id="qtab">
+  <thead><tr>
+    <th>หน่วย</th><th class="num">E[S]</th><th class="num">cs²</th>
+    <th class="num">โต๊ะพีค</th><th class="num">ρ พีค</th>
+    <th class="num">รอเฉลี่ย</th><th class="num">รอ p90</th>
+    <th class="num">คิวสูงสุด</th><th>สถานะ</th>
+  </tr></thead>
+  <tbody></tbody>
+</table>
+<caption>ทุกค่ามาจาก <code>answer_key.json</code> ของชุดข้อมูล (ค่าจริงที่เกิดขึ้น ไม่ใช่ค่าประมาณ)</caption>
+</div>
+
+<div class="warnbox">
+  <p class="boxtitle">พบความไม่ตรงกันระหว่าง config กับข้อมูลจริง</p>
+  <p style="margin-bottom:0">
+    <code>config.yaml</code> ประกาศว่าช่วง 06:30–09:00 จุดเจาะเลือดเปิด <strong>11 โต๊ะ</strong>
+    แต่ข้อมูลเห็นว่าเปิดจริง <strong>7 โต๊ะ</strong>
+    FlowLens ตรวจพบด้วยฟังก์ชัน <code>observed_servers()</code>
+    ที่นับจำนวนโต๊ะที่มีงานพร้อมกันสูงสุดในแต่ละช่วง
+    แล้วติดป้ายสาเหตุ "กำลังไม่พอ" พร้อมหลักฐานว่า
+    <em>"config ระบุ 11 โต๊ะช่วงพีค แต่ข้อมูลเห็นเปิดจริง 7 โต๊ะ"</em>
+    <br><br>
+    ข้อค้นพบนี้สำคัญกว่าตัวเลขใด ๆ ในรายงาน เพราะมันแปลว่า
+    <strong>ปัญหาอาจไม่ใช่การขาดอัตรากำลัง แต่เป็นการจัดกะที่ไม่ตรงกับแผน</strong>
+    ซึ่งแก้ได้โดยไม่ต้องใช้งบประมาณ
+  </p>
+</div>
+
+<h2 id="step5">5. M4 — Theory of Constraints</h2>
+
+<p>
+  มุมมอง TOC แปลงทุกหน่วยเป็นหน่วยเดียวกัน: <strong>ผู้ป่วยต่อชั่วโมงที่ทั้งระบบรับได้</strong>
+  (ทฤษฎีจาก <a href="../theory/06-network.html">บทที่ 6</a>)
+</p>
+
+<figure>
+  <div id="tocChart"></div>
+  <figcaption>กำลังของแต่ละหน่วยแปลงเป็นหน่วยเดียวกัน เทียบกับความต้องการช่วงพีค —
+    หน่วยที่เตี้ยที่สุดคือเพดานของทั้งระบบ</figcaption>
+</figure>
+<div id="tocLegend"></div>
+
+<h2 id="step6">6. คะแนนคอขวดและสาเหตุ</h2>
+
+<p>
+  รวมสามมิติเป็นคะแนนเดียว (<a href="../theory/07-bottleneck.html">บทที่ 7</a>)
+  แล้วจัดสาเหตุพร้อมหลักฐาน
+</p>
+
+<div id="scoreMap2" style="margin:1.4em 0"></div>
+
+<div class="tablewrap">
+<table id="stab">
+  <thead><tr><th class="num">อันดับ</th><th>หน่วย</th><th class="num">ρ̂</th>
+    <th class="num">สัดส่วนรอ</th><th class="num">ĝ</th><th class="num">คะแนน B</th></tr></thead>
+  <tbody></tbody>
+</table>
+</div>
+
+<div class="example">
+  <header>รายงานสาเหตุที่ระบบออกให้ — จุดเจาะเลือด</header>
+  <div class="body">
+    <div class="calc">หน่วย: PHLEB · จุดเจาะเลือด · อันดับ 1 · คะแนน B = 0.869
+
+<span class="hl">สาเหตุ 1 — กำลังไม่พอ</span>  [Queueing, TOC]
+  หลักฐาน  rho ช่วงพีค = 1.00 เกินเกณฑ์ 0.85
+           (เวลารอ p90 = 66 นาที)
+  แก้ไข    เพิ่มโต๊ะเฉพาะช่วงพีค ตามจำนวนที่คำนวณได้
+
+<span class="hl">สาเหตุ 2 — กำลังไม่พอ (กำลังจริงไม่ตรง config)</span>  [Queueing, TOC]
+  หลักฐาน  config ระบุ 11 โต๊ะช่วงพีค แต่ข้อมูลเห็นเปิดจริง 7 โต๊ะ
+  แก้ไข    ตรวจสอบการจัดกะจริงเทียบกับแผนที่เขียนไว้
+
+<span class="hl">สาเหตุ 3 — คนไม่ตรงกับช่วงคนมา</span>  [Queueing]
+  หลักฐาน  ช่วงพีค rho = 1.00
+           แต่ช่วง 11:00, 12:00, 13:00, 14:00 rho ต่ำกว่า 0.50
+  แก้ไข    เลื่อนกะเข้าเร็วขึ้น ย้ายคนจากช่วงว่างมาช่วงพีค
+
+สาเหตุที่ "ไม่" พบ
+  ความผันแปรสูง   cs² = 0.20 ต่ำกว่าเกณฑ์ 0.75   → ไม่ต้องทำ standard work
+  งานทำซ้ำ        อัตรา 0% ต่ำกว่าเกณฑ์ 3%        → ไม่ต้องทำ DMAIC
+  ส่งเป็นชุด       ไม่พบรูปแบบเป็นรอบ
+  เครื่องหยุด      QC ของเครื่องเคมีอยู่ที่ 06:00 ซึ่งก่อนเปิดบริการ → ไม่กระทบ
+  หน่วยถัดไปบล็อก  เวลาส่งต่อปกติ</div>
+    <p style="margin-bottom:0">
+      <strong>รายการ "สาเหตุที่ไม่พบ" มีค่าพอ ๆ กับรายการที่พบ</strong>
+      เพราะมันตัดทางเลือกที่ไม่ต้องลงทุนออกไป —
+      ไม่ต้องเสียเวลาทำโครงการ Six Sigma เมื่อความผันแปรไม่ใช่ปัญหา
+    </p>
+  </div>
+</div>
+
+<h2 id="step7">7. M6 — จำลองและทดสอบข้อเสนอ</h2>
+
+<p>
+  ถึงตรงนี้เรารู้ว่าต้องแก้ที่ไหน แต่ยังไม่รู้ว่า<strong>แก้แล้วได้กี่นาที</strong>
+  สูตรคิวตอบไม่ได้ เพราะ ρ เกิน 1 และมีคิวค้างข้ามช่วง
+  (<a href="../theory/09-nonstationary.html">บทที่ 9</a>)
+  จึงต้องจำลองทั้งระบบ
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ทดลองข้อเสนอด้วยตัวเอง</span>
+    <span class="hint">กดรันเพื่อจำลองหนึ่งวันทำการเต็ม ทั้ง 8 หน่วย</span>
+  </header>
+  <div class="body">
+    <div class="btnrow">
+      <button class="btn" data-sc="base" aria-pressed="true">ปัจจุบัน (7 โต๊ะ)</button>
+      <button class="btn" data-sc="cfg">ตาม config (11 โต๊ะ)</button>
+      <button class="btn" data-sc="shift">เปิดเร็วขึ้น 30 นาที</button>
+      <button class="btn" data-sc="verify">แก้ทวนสอบผลด้วย</button>
+      <button class="btn primary" id="runAll">รันเทียบทุกข้อเสนอ</button>
+    </div>
+    <div id="scDesc" class="note" style="margin-top:0"></div>
+    <div id="scOut"></div>
+  </div>
+</div>
+
+<h2 id="step8">8. ข้อเสนอที่ส่งถึงหัวหน้าหน่วย</h2>
+
+<p>
+  ข้อเสนอทุกข้อของ FlowLens มาจาก <code>rules.yaml</code> ที่ผูกสาเหตุเข้ากับวิธีแก้
+  แล้ว<strong>ยืนยันผลด้วยการจำลอง</strong> ก่อนขึ้นรายงาน
+  โดยเรียงตาม "นาทีที่ลดได้ต่อบาทที่ใช้"
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th class="num">ลำดับ</th><th>ข้อเสนอ</th><th class="num">ค่าใช้จ่าย</th>
+    <th>ฐานทฤษฎี</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td>
+      <th>ตรวจสอบว่าทำไมกะเช้าเปิดแค่ 7 โต๊ะ ทั้งที่แผนระบุ 11 โต๊ะ</th>
+      <td class="num"><span class="pill ok">0 บาท</span></td>
+      <td>ช่องว่างระหว่าง config กับข้อมูลจริง</td></tr>
+    <tr><td class="num">2</td>
+      <th>ย้ายพนักงาน 2 คนจากช่วง 11:00–14:00 (ρ &lt; 0.3) มาเข้ากะ 06:30</th>
+      <td class="num"><span class="pill ok">0 บาท</span></td>
+      <td>Queueing — สาเหตุ "คนไม่ตรงกับช่วงคนมา"</td></tr>
+    <tr><td class="num">3</td>
+      <th>เปิดเพิ่มเป็น 9 โต๊ะ ช่วง 06:30–09:00 (ถ้าย้ายคนไม่พอ)</th>
+      <td class="num">2,250 บาท/วัน</td>
+      <td>Erlang-C ย้อนกลับ + เพดาน ρ ≤ 0.85</td></tr>
+    <tr><td class="num">4</td>
+      <th>เลื่อนกะของหน่วยทวนสอบผลจาก 08:00 เป็น 07:00</th>
+      <td class="num"><span class="pill ok">0 บาท</span></td>
+      <td>TOC — คอขวดอันดับถัดไปหลังแก้ข้อ 1–3</td></tr>
+    <tr><td class="num">5</td>
+      <th>กระจายการมาถึงด้วยระบบนัด ลดกระจุกช่วง 06:30–07:30</th>
+      <td class="num">ต้นทุนระบบนัด</td>
+      <td>ลด ca² ในสมการ VUT</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="tip">
+  <p class="boxtitle">สังเกตลำดับ</p>
+  <p style="margin-bottom:0">
+    สามข้อแรกที่ควรทำ มีสองข้อที่<strong>ไม่ต้องใช้เงินเลย</strong>
+    นี่คือผลโดยตรงของขั้นตอน "Exploit" ใน TOC
+    — ใช้สิ่งที่มีอยู่ให้คุ้มก่อน แล้วค่อยซื้อเพิ่ม
+    และเป็นเหตุผลที่การวิเคราะห์ต้องจัด<strong>สาเหตุ</strong> ไม่ใช่แค่ชี้ตัวคอขวด
+  </p>
+</div>
+
+<h2 id="step9">9. ตรวจกับเฉลย</h2>
+
+<p>
+  ชุดข้อมูลนี้ถูกสร้างขึ้นโดยมี <strong>ปัญหาที่ฝังไว้ล่วงหน้า</strong>
+  จึงตรวจได้ว่าการวิเคราะห์ชี้ถูกหรือไม่ — คำสั่ง
+  <code>flowlens check-answer</code> ทำเรื่องนี้โดยอัตโนมัติ
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>หัวข้อ</th><th>เฉลย</th><th>ผลวิเคราะห์</th><th class="num">ตรงไหม</th></tr></thead>
+  <tbody>
+    <tr><th>ปัญหาที่ฝังไว้</th><td>understaffed ที่ PHLEB — เปิดเพียง 7 โต๊ะ ช่วง 06:30–09:00</td>
+      <td>กำลังไม่พอที่ PHLEB + พบช่องว่าง config 11 เทียบจริง 7</td>
+      <td class="num"><span class="pill ok">ตรง</span></td></tr>
+    <tr><th>คอขวดโดยการใช้กำลัง</th><td>PHLEB</td><td>PHLEB (ρ = 1.00 สูงสุด)</td>
+      <td class="num"><span class="pill ok">ตรง</span></td></tr>
+    <tr><th>คอขวดโดยสัดส่วนเวลารอ</th><td>PHLEB</td><td>PHLEB (83.9%)</td>
+      <td class="num"><span class="pill ok">ตรง</span></td></tr>
+    <tr><th>คะแนนคอขวดอันดับ 1</th><td>PHLEB</td><td>PHLEB (B = 0.869)</td>
+      <td class="num"><span class="pill ok">ตรง</span></td></tr>
+    <tr><th>สาเหตุ</th><td>กำลังไม่พอ</td>
+      <td>กำลังไม่พอ · คนไม่ตรงกับช่วงคนมา</td>
+      <td class="num"><span class="pill ok">ตรง</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="mapping">10. ทฤษฎีไหนถูกใช้ตรงไหน</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ขั้นตอน</th><th>ทฤษฎี</th><th>สิ่งที่ได้</th></tr></thead>
+  <tbody>
+    <tr><th>M1 Descriptive</th><td>สถิติพื้นฐาน + <a href="../theory/02-littles-law.html">กฎของลิตเติล</a></td>
+      <td>TAT, เวลารอรายหน่วย, ตรวจความสมเหตุสมผลของข้อมูล</td></tr>
+    <tr><th>M2 Lean</th><td>Value stream, VA/NVA, batching</td>
+      <td>สัดส่วนเวลารอ 56.8%, PCE 28%, หาจุดที่ส่งเป็นชุด</td></tr>
+    <tr><th>M3 Queueing</th>
+      <td><a href="../theory/04-mmc.html">Erlang-C</a> ·
+          <a href="../theory/05-ggc.html">Sakasegawa</a> ·
+          <a href="../theory/02-littles-law.html">Little</a></td>
+      <td>ρ รายช่วง, Wq, Wq p90, จำนวนโต๊ะที่ควรมี, ขนาดห้องรอ</td></tr>
+    <tr><th>M4 TOC</th><td><a href="../theory/06-network.html">สมดุลการไหล</a> ·
+          Active Period · starving/blocking</td>
+      <td>เพดานของระบบ, ข้อจำกัดที่แท้จริง, คอขวดที่ย้ายที่</td></tr>
+    <tr><th>M5 Six Sigma</th><td>cs², control chart, Pareto ของงานทำซ้ำ</td>
+      <td>ชี้ว่าความผันแปรเป็นปัญหาหรือไม่ (กรณีนี้: ไม่)</td></tr>
+    <tr><th>M6 Simulation</th><td><a href="../theory/09-nonstationary.html">DES + validation</a></td>
+      <td>ผลของข้อเสนอเป็นนาที, ผลสะสม, ช่วงความเชื่อมั่น</td></tr>
+    <tr><th>M7 Targets</th><td>Elasticity จากการจำลอง</td>
+      <td>เป้าเวลาต่อหน่วยที่ทำได้จริง ไม่ใช่ตั้งลอย ๆ</td></tr>
+    <tr><th>M8 Discovery</th><td>GMM, HDBSCAN, change-point detection</td>
+      <td>กลุ่มวันที่พฤติกรรมต่างกัน, เส้นทางแปลก, วันผิดปกติ</td></tr>
+    <tr><th>M9 Forecast</th><td>Backtest แข่งโมเดล, ช่วง P80/P90</td>
+      <td>ปริมาณงานล่วงหน้า → แผนคนล่วงหน้า</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>บทเรียนจากกรณีศึกษานี้</h4>
+  <ul>
+    <li><strong>ค่าเฉลี่ยทั้งวันซ่อนคอขวด</strong> — ρ เฉลี่ยของจุดเจาะเลือดคือ 0.44 แต่ช่วงพีคคือ 1.00</li>
+    <li><strong>ปัญหากระจุกตัว</strong> — หน่วยเดียวกินเวลารอ 84% และปัญหาทั้งหมดอยู่ใน 2.5 ชั่วโมงแรกของวัน</li>
+    <li><strong>ตรวจ config กับข้อมูลจริงเสมอ</strong> — ความต่างระหว่าง 11 กับ 7 โต๊ะคือคำตอบทั้งหมดของเคสนี้</li>
+    <li><strong>การจัดสาเหตุสำคัญกว่าการชี้ตัว</strong> — เพราะ "คนไม่ตรงกับช่วงคนมา" แก้ได้ฟรี</li>
+    <li><strong>ยืนยันด้วยการจำลองก่อนเสนอ</strong> — ไม่ใช่เอาผลต่างของสูตรมาบวกกัน</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/flowmap.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var PEAK = 7 * 60 + 30;
+
+  /* ---------- ผังระบบ ---------- */
+  function map0() {
+    var sub = {};
+    FL.units.forEach(function (u) {
+      sub[u.id] = u.type === 'transport' ? '4.0 นาที'
+        : FL.serversAt(u, PEAK) + ' โต๊ะ · ' + u.serviceMean.toFixed(1) + ' น.';
+    });
+    FlowMap.draw('map0', { values: {}, sub: sub, mode: 'score' });
+  }
+  map0();
+
+  /* ---------- องค์ประกอบ TAT ---------- */
+  function tatBreak() {
+    Chart.mount('tatBreak', Chart.barChart({
+      width: 660, height: 190, labels: ['TAT เฉลี่ย 65.9 นาที'], stacked: true,
+      series: [
+        { name: 'สร้างคุณค่า', values: [18.54], color: 'var(--s3)' },
+        { name: 'บริการแต่ไม่สร้างคุณค่า', values: [10.00], color: 'var(--s5)' },
+        { name: 'รอ', values: [37.42], color: 'var(--s2)' },
+      ],
+      ylabel: 'นาที', y1: 72, margin: { t: 14, r: 16, b: 40, l: 48 },
+      label: 'องค์ประกอบของ TAT',
+    }));
+    var host = document.getElementById('tatBreak');
+    host.appendChild(Chart.legend([
+      { name: 'สร้างคุณค่า 18.5 น. (28%)', color: 'var(--s3)' },
+      { name: 'ไม่สร้างคุณค่า 10.0 น. (15%)', color: 'var(--s5)' },
+      { name: 'รอ 37.4 น. (57%)', color: 'var(--s2)' },
+    ]));
+  }
+  tatBreak();
+
+  /* ---------- ตารางคิว ---------- */
+  (function () {
+    var rows = '';
+    FL.units.forEach(function (u) {
+      var t = u.truth;
+      var cls = Number.isFinite(t.rhoPeak) && t.rhoPeak >= 1 ? 'is-flag' : '';
+      rows += '<tr class="' + cls + '"><th>' + u.name + '</th>' +
+        '<td class="num">' + u.serviceMean.toFixed(1) + '</td>' +
+        '<td class="num">' + (t.serviceCv * t.serviceCv).toFixed(2) + '</td>' +
+        '<td class="num">' + (u.type === 'transport' ? '—' : FL.serversAt(u, PEAK)) + '</td>' +
+        '<td class="num"><strong>' + (Number.isFinite(t.rhoPeak) ? t.rhoPeak.toFixed(2) : '—') + '</strong></td>' +
+        '<td class="num">' + t.waitMean.toFixed(2) + '</td>' +
+        '<td class="num">' + t.waitP90.toFixed(2) + '</td>' +
+        '<td class="num">' + (t.queueMax != null ? t.queueMax : '—') + '</td>' +
+        '<td>' + (!Number.isFinite(t.rhoPeak) ? '<span class="pill">ไม่มีคิว</span>'
+          : t.rhoPeak >= 1 ? '<span class="pill bad">ชนเพดาน</span>'
+          : t.rhoPeak > 0.85 ? '<span class="pill warn">ตึง</span>'
+          : '<span class="pill ok">ปกติ</span>') + '</td></tr>';
+    });
+    document.querySelector('#qtab tbody').innerHTML = rows;
+  })();
+
+  /* ---------- TOC ---------- */
+  function tocChart() {
+    var SERVICE = FL.units.filter(function (u) { return u.type !== 'transport'; });
+    var lam0 = 104 / 60;
+    var lams = FL.unitLambdaAt(PEAK, 0);
+    var scale = lam0 / FL.arrivalRate(PEAK);
+    var vals = [], cols = [];
+    SERVICE.forEach(function (u) {
+      var c = FL.serversAt(u, PEAK);
+      var lam = (lams[u.id] || 0) * scale;
+      var share = lam / lam0;
+      var sysCap = share > 0 ? ((60 * c) / u.serviceMean) / share : 0;
+      vals.push(Math.min(sysCap, 260));
+      cols.push(sysCap < 104 ? 'var(--bad)' : sysCap < 140 ? 'var(--warn)' : 'var(--s1)');
+    });
+    Chart.mount('tocChart', Chart.barChart({
+      width: 700, height: 280, rotate: true, valueLabels: true,
+      labels: SERVICE.map(function (u) { return u.short; }),
+      series: [{ values: vals, colors: cols }],
+      ylabel: 'ผู้ป่วยต่อชั่วโมงที่ระบบรับได้', y1: 270,
+      vfmt: function (v) { return v.toFixed(0); },
+      rules: [{ y: 104, color: 'var(--ok)', label: 'ความต้องการเฉลี่ยช่วงพีค 104' },
+              { y: 169, color: 'var(--bad)', label: 'ครึ่งชั่วโมงแรก 169' }],
+      margin: { t: 14, r: 16, b: 66, l: 56 },
+      label: 'กำลังของระบบแยกตามหน่วย',
+    }));
+    Chart.mount('tocLegend', Chart.legend([
+      { name: 'ต่ำกว่าความต้องการ — เป็นข้อจำกัด', color: 'var(--bad)' },
+      { name: 'ใกล้เคียง — เป็นข้อจำกัดถัดไป', color: 'var(--warn)' },
+      { name: 'มีกำลังเหลือ', color: 'var(--s1)' },
+    ]));
+  }
+  tocChart();
+
+  /* ---------- คะแนน ---------- */
+  function scoreBlock() {
+    var rows = Q.bottleneckScores(FL.scoreInput(), FL.project.weights);
+    var vals = {}, badge = {}, sub = {};
+    rows.forEach(function (r) { vals[r.unit] = r.score; badge[r.unit] = r.rank;
+      sub[r.unit] = 'B ' + r.score.toFixed(2); });
+    FlowMap.draw('scoreMap2', { values: vals, badge: badge, sub: sub, mode: 'score',
+      highlight: rows[0].unit });
+    var html = '';
+    rows.forEach(function (r) {
+      html += '<tr class="' + (r.rank === 1 ? 'is-flag' : '') + '">' +
+        '<td class="num">' + r.rank + '</td><th>' + r.name + '</th>' +
+        '<td class="num">' + r.rho_term.toFixed(3) + '</td>' +
+        '<td class="num">' + (r.wait_share * 100).toFixed(1) + '%</td>' +
+        '<td class="num">' + r.growth_term.toFixed(3) + '</td>' +
+        '<td class="num"><strong>' + r.score.toFixed(3) + '</strong></td></tr>';
+    });
+    document.querySelector('#stab tbody').innerHTML = html;
+  }
+  scoreBlock();
+
+  /* ---------- การจำลองข้อเสนอ ---------- */
+  var SCEN = {
+    base: { name: 'ปัจจุบัน',
+            desc: 'จุดเจาะเลือด 7 โต๊ะ ช่วง 06:30–09:00 · หน่วยทวนสอบผล 3 โต๊ะจนถึง 08:00 — ตรงกับข้อมูลจริง',
+            openAt: 390, phleb: 7, phlebFrom: 390, verifyFrom: 480 },
+    cfg: { name: 'ตาม config',
+           desc: 'เปิดจุดเจาะเลือดครบ 11 โต๊ะตามที่แผนระบุ — ถ้าคนมีอยู่แล้ว ข้อนี้ไม่ใช้เงินเพิ่มเลย',
+           openAt: 390, phleb: 11, phlebFrom: 390, verifyFrom: 480 },
+    shift: { name: 'เปิดเร็วขึ้น 30 นาที',
+             desc: 'เปิดบริการ 06:00 แทน 06:30 ด้วย 9 โต๊ะ — รับคน 50 รายที่มายืนรอหน้าห้องก่อนเปิดอยู่แล้ว',
+             openAt: 360, phleb: 9, phlebFrom: 360, verifyFrom: 480 },
+    verify: { name: 'แก้ทวนสอบด้วย',
+              desc: 'จุดเจาะเลือด 11 โต๊ะ และเลื่อนกะหน่วยทวนสอบผลจาก 08:00 มาเป็น 07:00 — แก้คอขวดอันดับถัดไป',
+              openAt: 390, phleb: 11, phlebFrom: 390, verifyFrom: 420 },
+  };
+
+  function buildSim(sc, seed) {
+    var stations = FL.units.map(function (u) {
+      var cfg = {
+        id: u.id, name: u.short,
+        serviceMean: u.serviceMean,
+        scv: u.truth.serviceCv * u.truth.serviceCv,
+      };
+      if (u.type === 'transport') { cfg.infinite = true; return cfg; }
+      cfg.serversAt = function (t) {
+        if (t < sc.openAt) return 0;                 // ยังไม่เปิดบริการ
+        if (u.id === 'PHLEB') return (t >= sc.phlebFrom && t < 540) ? sc.phleb : u.serversBase;
+        if (u.id === 'VERIFY') return (t >= sc.verifyFrom && t < 720) ? 6 : u.serversBase;
+        if (u.id === 'REG') return (t >= sc.openAt && t < 540) ? 9 : u.serversBase;
+        for (var i = 0; i < (u.schedule || []).length; i++) {
+          var s = u.schedule[i];
+          if (t >= s.from && t < s.to) return s.servers;
+        }
+        return u.serversBase;
+      };
+      return cfg;
+    });
+    return new DES.Sim({
+      stations: stations,
+      routes: FL.routes.filter(function (r) { return true; }),
+      arrivalRate: function (t) { return FL.arrivalRate(t); },
+      lamMax: 2.82, tStart: 355, tEnd: FL.project.openTo + 120, seed: seed,
+    });
+  }
+
+  function runScenario(key, reps) {
+    var sc = SCEN[key];
+    var tats = [], waitP = [], tatP90s = [];
+    for (var r = 0; r < reps; r++) {
+      var sim = buildSim(sc, 1000 + r * 37);
+      sim.runAll();
+      var s = sim.summary();
+      s.tats.forEach(function (x) { tats.push(x); });
+      var ph = s.units.filter(function (u) { return u.unit === 'PHLEB'; })[0];
+      waitP.push(ph ? ph.waitMean : NaN);
+      tatP90s.push(s.tat.p90);
+    }
+    var st = Q.stats(tats);
+    return { key: key, name: sc.name, tatMean: st.mean, tatP90: st.p90,
+             phlebWait: Q.stats(waitP).mean, n: tats.length,
+             p90sd: Q.stats(tatP90s).sd };
+  }
+
+  var current = 'base';
+  function showScenario(key) {
+    current = key;
+    document.querySelectorAll('[data-sc]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.sc === key));
+    });
+    document.getElementById('scDesc').innerHTML =
+      '<strong>' + SCEN[key].name + '</strong> — ' + SCEN[key].desc;
+    var out = document.getElementById('scOut');
+    out.innerHTML = '<p style="color:var(--ink-faint)">กำลังจำลอง…</p>';
+    setTimeout(function () {
+      var r = runScenario(key, 5);
+      var b = key === 'base' ? r : runScenario('base', 5);
+      out.innerHTML =
+        '<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">' +
+        '<div class="stat"><div class="k">TAT เฉลี่ย</div><div class="v">' + r.tatMean.toFixed(1) +
+          '<span class="u">น.</span></div><div class="d">' +
+          (key === 'base' ? 'ค่าจริง 65.9 น.' : 'เดิม ' + b.tatMean.toFixed(1) + ' น.') + '</div></div>' +
+        '<div class="stat' + (key !== 'base' && r.tatP90 < b.tatP90 ? ' is-ok' : '') + '">' +
+          '<div class="k">TAT p90</div><div class="v">' + r.tatP90.toFixed(1) +
+          '<span class="u">น.</span></div><div class="d">' +
+          (key === 'base' ? 'ค่าจริง 96.8 น.' : 'ลดลง ' + (b.tatP90 - r.tatP90).toFixed(1) + ' น.') + '</div></div>' +
+        '<div class="stat"><div class="k">รอที่จุดเจาะ</div><div class="v">' + r.phlebWait.toFixed(1) +
+          '<span class="u">น.</span></div><div class="d">' +
+          (key === 'base' ? 'ค่าจริง 31.4 น.' : 'เดิม ' + b.phlebWait.toFixed(1) + ' น.') + '</div></div>' +
+        '<div class="stat"><div class="k">ผู้ป่วยที่จำลอง</div><div class="v">' + Q.fmt.i(r.n) +
+          '</div><div class="d">5 รอบ</div></div>' +
+        '</div>' +
+        (key === 'base'
+          ? '<div class="tip" style="margin:14px 0 0">แบบจำลองให้ TAT p90 = ' + r.tatP90.toFixed(1) +
+            ' นาที เทียบกับค่าจริง 96.8 นาที (คลาดเคลื่อน ' +
+            (Math.abs(r.tatP90 - 96.75) / 96.75 * 100).toFixed(1) +
+            '%) — อยู่ในเกณฑ์ <code>tat_tolerance = 10%</code> ที่ FlowLens กำหนด ' +
+            'จึงใช้แบบจำลองนี้ทดสอบข้อเสนอต่อได้</div>'
+          : '<div class="tip" style="margin:14px 0 0">เทียบกับสถานการณ์ปัจจุบัน: TAT p90 ลดลง <strong>' +
+            (b.tatP90 - r.tatP90).toFixed(1) + ' นาที</strong> และเวลารอที่จุดเจาะลดลง <strong>' +
+            (b.phlebWait - r.phlebWait).toFixed(1) + ' นาที</strong></div>');
+    }, 30);
+  }
+
+  document.querySelectorAll('[data-sc]').forEach(function (b) {
+    b.addEventListener('click', function () { showScenario(b.dataset.sc); });
+  });
+
+  document.getElementById('runAll').addEventListener('click', function () {
+    var out = document.getElementById('scOut');
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'กำลังรัน…';
+    out.innerHTML = '<p style="color:var(--ink-faint)">กำลังจำลองทุกข้อเสนอ อย่างละ 5 รอบ…</p>';
+    setTimeout(function () {
+      var keys = ['base', 'cfg', 'shift', 'verify'];
+      var res = keys.map(function (k) { return runScenario(k, 5); });
+      var base = res[0];
+      var html = '<div class="tablewrap"><table><thead><tr><th>สถานการณ์</th>' +
+        '<th class="num">TAT เฉลี่ย</th><th class="num">TAT p90</th>' +
+        '<th class="num">รอที่จุดเจาะ</th><th class="num">p90 ลดลง</th></tr></thead><tbody>';
+      res.forEach(function (r, i) {
+        html += '<tr class="' + (i === 0 ? '' : r.tatP90 < base.tatP90 ? '' : 'is-flag') + '">' +
+          '<th>' + r.name + '</th>' +
+          '<td class="num">' + r.tatMean.toFixed(1) + '</td>' +
+          '<td class="num"><strong>' + r.tatP90.toFixed(1) + '</strong></td>' +
+          '<td class="num">' + r.phlebWait.toFixed(1) + '</td>' +
+          '<td class="num">' + (i === 0 ? '—' :
+            '<strong style="color:var(--ok)">−' + (base.tatP90 - r.tatP90).toFixed(1) + ' น.</strong>') +
+          '</td></tr>';
+      });
+      html += '</tbody></table><caption>แต่ละแถวคือการจำลองวันทำการเต็มทั้ง 8 หน่วย 5 รอบ ' +
+        '(เลขสุ่มชุดเดียวกันทุกสถานการณ์ เพื่อให้เทียบกันได้ตรง ๆ)</caption></div>' +
+        '<div id="cmpChart"></div>';
+      out.innerHTML = html;
+
+      Chart.mount('cmpChart', Chart.barChart({
+        width: 660, height: 250, labels: res.map(function (r) { return r.name; }),
+        series: [
+          { name: 'TAT เฉลี่ย', values: res.map(function (r) { return r.tatMean; }), color: 'var(--s1)' },
+          { name: 'TAT p90', values: res.map(function (r) { return r.tatP90; }), color: 'var(--s2)' },
+        ],
+        valueLabels: true, ylabel: 'นาที',
+        vfmt: function (v) { return v.toFixed(0); },
+        margin: { t: 14, r: 16, b: 46, l: 48 },
+        label: 'เทียบผลของแต่ละข้อเสนอ',
+      }));
+      btn.disabled = false; btn.textContent = 'รันเทียบทุกข้อเสนออีกครั้ง';
+    }, 30);
+  });
+
+  showScenario('base');
+  document.addEventListener('themechange', function () {
+    map0(); tatBreak(); tocChart(); scoreBlock();
+  });
+})();
+</script>
+</body>
+</html>

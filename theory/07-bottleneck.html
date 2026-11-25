@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 7 — วิธีหาคอขวด 5 แบบ และ Bottleneck Score</title>
+<meta name="description" content="ชี้คอขวดด้วยการใช้กำลัง สัดส่วนเวลารอ ความไวต่อปริมาณงาน Active Period Method และการจำลอง พร้อมสูตร Bottleneck Score และการจัดสาเหตุ 7 ประเภทของ FlowLens">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/07-bottleneck.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 7</p>
+  <h1>หาคอขวด</h1>
+  <p class="lede">
+    บทนี้คือหัวใจของเรื่องทั้งหมด — วิธีชี้ตัวคอขวด 5 แบบ จุดอ่อนของแต่ละแบบ
+    และวิธีรวมทั้งหมดเป็นคะแนนเดียวที่เรียงลำดับได้
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="def">1. คอขวดคืออะไรกันแน่</h2>
+
+<div class="note">
+  <p style="margin-bottom:0">
+    <strong>คอขวด คือทรัพยากรที่จำกัดกำลังการผลิตของทั้งระบบ</strong>
+    — เพิ่มกำลังที่จุดนั้นแล้วทั้งระบบเร็วขึ้น เพิ่มที่อื่นแล้วไม่มีอะไรเปลี่ยน
+  </p>
+</div>
+
+<p>
+  นิยามนี้มาจาก <strong>Theory of Constraints</strong> ของ Goldratt
+  และมีผลลัพธ์ที่ตรงไปตรงมาแต่คนมักลืม:
+</p>
+
+<ul>
+  <li><strong>ชั่วโมงที่เสียไปที่คอขวด = ชั่วโมงที่เสียไปของทั้งระบบ</strong>
+    — เครื่องเคมีหยุด QC 20 นาที ถ้าไม่ใช่คอขวด ไม่มีผลอะไร แต่ถ้าเป็นคอขวด
+    ทั้งระบบเสียกำลังไป 20 นาทีเต็ม</li>
+  <li><strong>ชั่วโมงที่ประหยัดได้ที่ไม่ใช่คอขวด = ภาพลวงตา</strong>
+    — ทำให้จุดลงทะเบียนเร็วขึ้น 30% ไม่ได้ช่วยอะไร ถ้าคนยังไปติดที่จุดเจาะอยู่ดี</li>
+  <li><strong>คอขวดกำหนดจังหวะของทั้งระบบ</strong> (drum) — ปล่อยงานเข้าระบบเร็วกว่าที่คอขวดรับได้
+    มีผลอย่างเดียวคือคิวยาวขึ้น ไม่ได้ผลงานเพิ่มแม้แต่รายเดียว</li>
+</ul>
+
+<h2 id="methods">2. วิธีชี้ตัวคอขวด 5 แบบ</h2>
+
+<h3>วิธีที่ 1 — การใช้กำลัง (utilization method)</h3>
+
+<p>หน่วยที่ ρ สูงที่สุดในช่วงพีค คือผู้ต้องสงสัยอันดับหนึ่ง</p>
+
+<div class="grid g2">
+  <div class="card"><p class="boxtitle" style="color:var(--ok)">ข้อดี</p>
+    <ul style="margin-bottom:0"><li>คำนวณได้จากข้อมูลน้อยมาก (แค่จำนวนคนกับเวลาบริการ)</li>
+      <li>ชี้ตรงไปที่ "กำลังไม่พอ" ซึ่งเป็นสาเหตุที่พบบ่อยที่สุด</li></ul></div>
+  <div class="card"><p class="boxtitle" style="color:var(--bad)">จุดอ่อน</p>
+    <ul style="margin-bottom:0"><li>ρ สูงแต่<strong>ช่วงสั้น</strong>ไม่สร้างคิวมาก — จุดลงทะเบียนมี ρ = 0.9966 แต่คนรอเฉลี่ยแค่ 4 นาที</li>
+      <li>ไม่เห็นปัญหาจากความผันแปร การส่งเป็นชุด หรือการบล็อก</li></ul></div>
+</div>
+
+<h3>วิธีที่ 2 — สัดส่วนเวลารอ (Lean / value stream)</h3>
+
+<div class="formula tight">
+  $$\text{wait share}(u) \;=\; \frac{\sum_i W_{q,i}(u)}{\sum_k \sum_i W_{q,i}(k)}$$
+  <div class="caption">เวลารอทั้งหมดที่เกิดที่หน่วย u หารด้วยเวลารอทั้งหมดของทุกหน่วยรวมกัน</div>
+</div>
+
+<p>
+  วิธีนี้ตอบคำถามที่ผู้ป่วยสนใจจริง ๆ: <em>"นาทีที่ฉันเสียไป เสียไปที่ไหน"</em>
+  ในกรณีศึกษา คำตอบชัดมาก
+</p>
+
+<figure>
+  <div id="shareChart"></div>
+  <figcaption>สัดส่วนเวลารอของแต่ละหน่วย — จุดเจาะเลือดกิน 83.9%
+    ของเวลารอทั้งหมดในระบบ</figcaption>
+</figure>
+
+<h3>วิธีที่ 3 — ความไวต่อปริมาณงาน (wait growth)</h3>
+
+<p>
+  หน่วยที่กำลังชนเพดานจะมีลักษณะเฉพาะ: <strong>วันที่คนมามาก เวลารอพุ่งขึ้นมาก</strong>
+  ส่วนหน่วยที่ยังมีที่ว่างจะแทบไม่เปลี่ยน FlowLens วัดด้วยการถดถอยเชิงเส้น
+  ระหว่างจำนวนผู้ใช้บริการรายวันกับเวลารอเฉลี่ยรายวัน
+</p>
+
+<pre><code>def wait_growth(log, unit_id):
+    by_day = ev.groupby("date").agg(wait=("wait_min","mean"), n=("wait_min","size"))
+    if len(by_day) &lt; 4: return nan        # ข้อมูลน้อยเกินไป
+    slope = np.polyfit(by_day["n"], by_day["wait"], 1)[0]
+    return slope       # นาทีที่เพิ่ม ต่อผู้ป่วย 1 รายที่มาเพิ่ม</code></pre>
+
+<div class="tip">
+  <p style="margin-bottom:0">
+    วิธีนี้เป็น<strong>ตัวชี้นำล่วงหน้า</strong>ที่ดีที่สุด
+    หน่วยที่ความชันสูงแต่ยังไม่พัง คือหน่วยที่จะพังเป็นรายต่อไป
+    เมื่อปริมาณผู้ป่วยเพิ่มขึ้นอีกนิดเดียว
+  </p>
+</div>
+
+<h3>วิธีที่ 4 — Active Period Method</h3>
+
+<p>
+  วิธีจาก Roser, Nakano &amp; Tanaka — คอขวด ณ ขณะหนึ่งคือหน่วยที่
+  <strong>ทำงานต่อเนื่องยาวที่สุดโดยไม่หยุดพัก</strong>
+  จุดแข็งของวิธีนี้คือมันเห็น <strong>คอขวดที่ย้ายที่ระหว่างวัน</strong>
+</p>
+
+<pre><code>def active_period_bottleneck(log, bin_minutes=30):
+    """หน่วยที่ทำงานต่อเนื่องนานที่สุดในแต่ละช่วง คือคอขวดขณะนั้น
+    วิธีนี้เห็นคอขวดที่ย้ายที่ระหว่างวัน
+    เช่น เช้าติดที่จุดเจาะ สายติดที่เครื่องเคมี"""</code></pre>
+
+<figure>
+  <div id="apChart"></div>
+  <figcaption>คอขวดรายชั่วโมง — เส้นที่อยู่สูงสุดในแต่ละชั่วโมงคือหน่วยที่คุมจังหวะขณะนั้น
+    ช่วง 06:00–09:00 จุดเจาะเลือดครองตำแหน่งนี้ตลอด หลัง 10:00 ไม่มีหน่วยใดเกิน 0.40
+    แปลว่าทั้งระบบไม่มีคอขวดอีกเลยตลอดครึ่งวันหลัง — ปัญหาทั้งหมดกระจุกอยู่ใน 2 ชั่วโมงครึ่ง</figcaption>
+</figure>
+<div id="apLegend"></div>
+
+<h3>วิธีที่ 5 — ทดลองแก้ในแบบจำลอง (shadow price)</h3>
+
+<p>
+  วิธีที่ตรงกับนิยามของคอขวดที่สุด: <strong>เพิ่มกำลังทีละหน่วย แล้วดูว่าหน่วยไหน
+  ทำให้ผลลัพธ์รวมดีขึ้นมากที่สุด</strong> ข้อเสียคือแพง — ต้องรันแบบจำลองหลายรอบ
+  แต่เป็นวิธีเดียวที่ตอบได้ว่า "ลงทุนที่ไหนคุ้มที่สุด"
+</p>
+
+<p>
+  FlowLens ทำแบบนี้ในโมดูล <code>targets.py</code> โดยคำนวณ
+  <strong>elasticity</strong> ของแต่ละหน่วย: ลดเวลาบริการลง 10%
+  แล้ว TAT p90 ของทั้งระบบดีขึ้นกี่เปอร์เซ็นต์
+</p>
+
+<h2 id="score">3. Bottleneck Score — รวมทุกวิธีเป็นคะแนนเดียว</h2>
+
+<p>
+  ทุกวิธีข้างบนมีจุดบอดของตัวเอง FlowLens จึงรวมสามมิติหลักเข้าเป็นคะแนนเดียว 0–1
+</p>
+
+<div class="formula">
+  $$B(u) \;=\; w_1\,\hat{\rho}_{\text{peak}}(u) \;+\; w_2\,\text{waitshare}(u)
+    \;+\; w_3\,\hat{g}(u)$$
+  <div class="caption">
+    ค่าเริ่มต้น <span class="katex-nowrap">$w_1=0.4,\;w_2=0.4,\;w_3=0.2$</span>
+    (ตั้งได้ใน <code>config.yaml</code> ที่ <code>analysis.bottleneck_weights</code>)
+  </div>
+</div>
+
+<div class="symbols">
+  <div><span class="sym">ρ̂_peak</span><span>ρ ช่วงพีค ถูกตัดที่ 1.2 แล้วหารด้วย 1.2 เพื่อให้อยู่ในช่วง 0–1
+    (การตัดทำให้หน่วยที่ ρ = 1.5 กับ 3.0 ไม่ต่างกันมาก เพราะทั้งคู่ก็พังเหมือนกัน)</span></div>
+  <div><span class="sym">waitshare</span><span>สัดส่วนเวลารอ อยู่ในช่วง 0–1 โดยธรรมชาติ ไม่ต้องปรับ</span></div>
+  <div><span class="sym">ĝ</span><span>ความชันเวลารอ ปรับเป็น 0–1 แบบ min–max <strong>เทียบกันเองระหว่างหน่วย</strong>
+    (หน่วยที่ชันที่สุดได้ 1.0 หน่วยที่ชันน้อยที่สุดได้ 0)</span></div>
+</div>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 7.1 — คะแนนคอขวดของทั้ง 8 หน่วย</span>
+    <span class="hint">เลื่อนน้ำหนักแล้วดูว่าอันดับเปลี่ยนไหม</span>
+  </header>
+  <div class="body">
+    <div class="grid g3" style="margin:0 0 16px">
+      <div class="ctrl" style="margin:0">
+        <label for="w1"><span>w₁ การใช้กำลัง</span><span class="val" id="w1V"></span></label>
+        <input type="range" id="w1" min="0" max="1" step="0.05" value="0.4">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="w2"><span>w₂ สัดส่วนเวลารอ</span><span class="val" id="w2V"></span></label>
+        <input type="range" id="w2" min="0" max="1" step="0.05" value="0.4">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="w3"><span>w₃ ความไวต่อปริมาณ</span><span class="val" id="w3V"></span></label>
+        <input type="range" id="w3" min="0" max="1" step="0.05" value="0.2">
+      </div>
+    </div>
+    <div id="scoreMap" style="margin-bottom:14px"></div>
+    <div class="tablewrap">
+      <table id="scoreTab">
+        <thead><tr>
+          <th class="num">อันดับ</th><th>หน่วย</th>
+          <th class="num">ρ พีค</th><th class="num">ρ̂</th>
+          <th class="num">สัดส่วนรอ</th><th class="num">ĝ</th>
+          <th class="num">คะแนน B</th><th style="width:140px"></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <caption>เฉลยของชุดข้อมูลระบุว่าคอขวดจริงคือ <strong>PHLEB</strong> —
+        คะแนนนี้ชี้ถูกที่อันดับ 1 ไม่ว่าจะปรับน้ำหนักอย่างไรก็ตาม</caption>
+    </div>
+    <div id="scoreNote"></div>
+  </div>
+</div>
+
+<h2 id="causes">4. รู้ว่าใครคือคอขวดแล้ว — แล้วมันเป็นเพราะอะไร</h2>
+
+<p>
+  การชี้ตัวคอขวดยังไม่พอ เพราะ "กำลังไม่พอ" กับ "ส่งเป็นชุด" แก้ไม่เหมือนกันเลย
+  FlowLens จึงจัดสาเหตุเป็น <strong>7 ประเภท</strong> โดยหน่วยหนึ่งมีได้หลายสาเหตุพร้อมกัน
+  และทุกข้อต้องมี <strong>หลักฐานเป็นตัวเลขจากข้อมูล</strong> กำกับเสมอ
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>สาเหตุ</th><th>เกณฑ์ตัดสินจากข้อมูล</th><th>วิธีแก้</th><th>ทฤษฎี</th></tr></thead>
+  <tbody>
+    <tr class="is-flag"><th>กำลังไม่พอ</th>
+      <td>ρ ช่วงพีค &gt; <code>max_utilization</code> (0.85)<br>หรือโต๊ะที่เปิดจริงน้อยกว่าที่ config ระบุ</td>
+      <td>เพิ่มโต๊ะเฉพาะช่วงพีค ตามจำนวนที่คำนวณได้</td><td>Queueing, TOC</td></tr>
+    <tr><th>คนไม่ตรงกับช่วงคนมา</th>
+      <td>ρ พีคเกินเกณฑ์ แต่มีช่วงอื่น ≥ 2 ช่วงที่ ρ &lt; 0.5 ทั้งที่ยังมีงานเข้า</td>
+      <td>เลื่อนกะเข้าเร็วขึ้น ย้ายคนจากช่วงว่างมาช่วงพีค</td><td>Queueing</td></tr>
+    <tr><th>ความผันแปรสูง</th>
+      <td>cs² &gt; 0.75 หรือเวลาทำงานต่างกันระหว่างโต๊ะ &gt; 25%</td>
+      <td>standard work, 5S, ถ่ายทอดวิธีจากคนที่เร็วสุด แยกคิวเคสยาก</td><td>Lean, Six Sigma</td></tr>
+    <tr><th>ส่งเป็นชุด</th>
+      <td>งานออกเป็นรอบ ๆ ตามช่วงเวลาคงที่ (ตรวจด้วยการ fit คาบ)</td>
+      <td>ส่งทีละหลอด ลดขนาดชุด หรือใช้ท่อลม</td><td>Lean</td></tr>
+    <tr><th>งานทำซ้ำ</th>
+      <td>อัตราทำซ้ำ &gt; <code>rework_threshold</code> (3%)</td>
+      <td>ทำ DMAIC กับสาเหตุอันดับต้นของ Pareto</td><td>Six Sigma</td></tr>
+    <tr><th>เครื่องหยุดช่วงพีค</th>
+      <td>ไม่ปล่อยงานออกเลยทั้งที่มีงานค้าง หรือ config ระบุ QC ในช่วงพีค</td>
+      <td>ย้าย QC ไปก่อนเปิดบริการ สลับเครื่องสำรอง</td><td>TOC</td></tr>
+    <tr><th>หน่วยถัดไปบล็อก</th>
+      <td>เวลาส่งต่อยาวผิดปกติ &gt; 15% ของเวลาที่อยู่ในหน่วย</td>
+      <td><strong>แก้ที่หน่วยถัดไป ไม่ใช่หน่วยนี้</strong></td><td>TOC</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 7.1 — สาเหตุที่ระบบจัดให้จุดเจาะเลือด</header>
+  <div class="body">
+    <p><strong>PHLEB · จุดเจาะเลือด · คะแนน B = 0.87 · อันดับ 1</strong></p>
+    <div class="calc"><span class="hl">[1] กำลังไม่พอ</span>
+    หลักฐาน: rho ช่วงพีค = 1.00 เกินเกณฑ์ 0.85
+             (เวลารอ p90 = 66 นาที)
+    วิธีแก้:  เพิ่มโต๊ะเฉพาะช่วงพีค ตามจำนวนที่คำนวณได้
+    ทฤษฎี:   Queueing, TOC
+
+<span class="hl">[2] กำลังไม่พอ (จาก capacity gap)</span>
+    หลักฐาน: config ระบุ 11 โต๊ะช่วงพีค
+             แต่ข้อมูลเห็นเปิดจริง 7 โต๊ะ
+    วิธีแก้:  ตรวจสอบการจัดกะจริงกับแผนที่เขียนไว้
+
+<span class="hl">[3] คนไม่ตรงกับช่วงคนมา</span>
+    หลักฐาน: ช่วงพีค rho = 1.00
+             แต่ช่วง 11:00, 12:00, 13:00, 14:00 rho ต่ำกว่า 0.5
+    วิธีแก้:  เลื่อนกะเข้าเร็วขึ้น ย้ายคนจากช่วงว่างมาช่วงพีค</div>
+    <p style="margin-bottom:0">
+      สังเกตว่าข้อ 3 สำคัญมากในทางปฏิบัติ — มันบอกว่า
+      <strong>ไม่จำเป็นต้องจ้างคนเพิ่ม</strong> เพราะคนที่มีอยู่แล้วนั่งว่างอยู่ตอนบ่าย
+      แค่ย้ายเวลาทำงานก็แก้ได้ นี่คือข้อเสนอที่ต้นทุนเป็นศูนย์
+    </p>
+  </div>
+</div>
+
+<h3>Starving และ Blocking — สองคำที่ต้องแยกให้ออก</h3>
+
+<div class="grid g2">
+  <div class="card">
+    <p class="boxtitle">Starving — อดงาน</p>
+    <p>หน่วยว่างเพราะ<strong>ไม่มีงานเข้ามา</strong> (ต้นน้ำช้า)</p>
+    <p style="margin-bottom:0"><small>FlowLens วัดจากสัดส่วนเวลาที่ไม่มีงานอยู่ในหน่วยเลย
+      <em>เทียบกับช่วงที่หน่วยนั้นมีงานจริงของวันนั้น</em>
+      ไม่ใช่เทียบเวลาเปิดทั้งวัน เพราะหน่วยปลายน้ำเริ่มมีงานช้ากว่าเวลาเปิด</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">Blocking — ส่งต่อไม่ได้</p>
+    <p>หน่วยทำงานเสร็จแล้วแต่<strong>ส่งไปหน่วยถัดไปไม่ได้</strong> (ปลายน้ำเต็ม)</p>
+    <p style="margin-bottom:0"><small>วัดจากเวลาส่งต่อ (handoff) ที่ยาวเกินค่า p10 ของตัวเอง
+      ถ้าส่วนเกินนี้เกิน 15% ของเวลาในหน่วย แปลว่าถูกบล็อก —
+      และ<strong>ต้องแก้ที่หน่วยถัดไป</strong></small></p>
+  </div>
+</div>
+
+<div class="warnbox">
+  <p style="margin-bottom:0">
+    <strong>กับดักคลาสสิก:</strong> หน่วยที่ถูกบล็อกจะมี ρ สูงและคิวยาว
+    ทำให้ดูเหมือนคอขวด ถ้าไปเพิ่มโต๊ะที่หน่วยนั้นจะ<strong>ไม่ได้อะไรเลย</strong>
+    เพราะปัญหาจริงอยู่ข้างหน้า การแยก starving/blocking ออกมาจึงป้องกัน
+    การลงทุนผิดจุดได้โดยตรง
+  </p>
+</div>
+
+<h2 id="process">5. ลำดับขั้นที่ควรทำ (5 Focusing Steps)</h2>
+
+<ol class="steps">
+  <li><span class="st">ระบุคอขวด (Identify)</span>
+    ใช้ Bottleneck Score + ดูว่าคอขวดย้ายที่ระหว่างวันหรือไม่ (Active Period)</li>
+  <li><span class="st">ใช้คอขวดให้คุ้มที่สุด (Exploit)</span>
+    ย้าย QC ออกจากช่วงพีค ลดงานแทรก ไม่ให้คอขวดว่างแม้นาทีเดียว
+    — <strong>ขั้นนี้ไม่ต้องใช้เงิน</strong></li>
+  <li><span class="st">ให้ทุกอย่างรับใช้คอขวด (Subordinate)</span>
+    ปล่อยงานเข้าระบบตามจังหวะของคอขวด ไม่ใช่ตามใจต้นน้ำ
+    (ลดคิวโดยไม่ลดผลงาน)</li>
+  <li><span class="st">ยกระดับคอขวด (Elevate)</span>
+    เพิ่มโต๊ะ เพิ่มเครื่อง เปลี่ยนวิธี — <strong>ขั้นนี้ถึงค่อยใช้เงิน</strong></li>
+  <li><span class="st">กลับไปข้อ 1 (Repeat)</span>
+    เพราะคอขวดย้ายที่แล้ว อย่าปล่อยให้ความเคยชินกลายเป็นข้อจำกัดใหม่</li>
+</ol>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 7</h4>
+  <ul>
+    <li>คอขวด = จุดที่จำกัดกำลังของ<strong>ทั้งระบบ</strong> ไม่ใช่จุดที่คิวยาวที่สุดเสมอไป</li>
+    <li>ใช้หลายวิธีประกอบกัน: ρ พีค · สัดส่วนเวลารอ · ความไวต่อปริมาณ · Active Period · การจำลอง</li>
+    <li><strong>B(u) = 0.4ρ̂ + 0.4·waitshare + 0.2ĝ</strong> — รวมสามมิติ เรียงอันดับได้ ทนต่อการเปลี่ยนน้ำหนัก</li>
+    <li>ต้องจัด<strong>สาเหตุ</strong>ด้วย ไม่ใช่แค่ชี้ตัว — เพราะ 7 สาเหตุแก้คนละวิธี และบางวิธีไม่ใช้เงินเลย</li>
+    <li>แยก starving กับ blocking ให้ออก ไม่งั้นจะเติมคนผิดหน่วย</li>
+    <li>ทำตาม 5 ขั้นของ TOC: <strong>ใช้ให้คุ้มก่อน แล้วค่อยซื้อเพิ่ม</strong></li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/flowmap.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- สัดส่วนเวลารอ ---------- */
+  function shareChart() {
+    var us = FL.units.slice().sort(function (a, b) { return b.truth.waitShare - a.truth.waitShare; });
+    Chart.mount('shareChart', Chart.barChart({
+      width: 700, height: 280, rotate: true, valueLabels: true,
+      labels: us.map(function (u) { return u.short; }),
+      series: [{ values: us.map(function (u) { return u.truth.waitShare * 100; }),
+                 colors: us.map(function (u) {
+                   return u.truth.waitShare > 0.5 ? 'var(--bad)'
+                        : u.truth.waitShare > 0.05 ? 'var(--warn)' : 'var(--s1)'; }) }],
+      ylabel: '% ของเวลารอทั้งระบบ', y1: 92,
+      vfmt: function (v) { return v.toFixed(1) + '%'; },
+      yfmt: function (v) { return v.toFixed(0) + '%'; },
+      margin: { t: 14, r: 16, b: 66, l: 52 },
+      label: 'สัดส่วนเวลารอรายหน่วย',
+    }));
+  }
+  shareChart();
+
+  /* ---------- Active Period (ใช้ ρ รายชั่วโมงเป็นตัวแทนความต่อเนื่อง) ---------- */
+  function apChart() {
+    var show = ['PHLEB', 'REG', 'VERIFY', 'CHEM', 'HEMA', 'RECEIVE'];
+    var series = show.map(function (id, i) {
+      var u = FL.byId[id];
+      var pts = Object.keys(u.rhoByHour).map(Number).sort(function (a, b) { return a - b; })
+        .map(function (h) { return [h, u.rhoByHour[h]]; });
+      return { points: pts, color: Chart.SERIES[i % 8],
+               width: id === 'PHLEB' ? 2.8 : 1.8 };
+    });
+    Chart.mount('apChart', Chart.lineChart({
+      width: 700, height: 270, x0: 6, x1: 15, y0: 0, y1: 1.08, nx: 10,
+      xlabel: 'ชั่วโมงของวัน', ylabel: 'สัดส่วนเวลาที่หน่วยไม่ว่าง',
+      xfmt: function (v) { return String(Math.round(v)) + ':00'; },
+      yfmt: function (v) { return v.toFixed(2); },
+      series: series,
+      bands: [{ from: 6, to: 9, label: 'จุดเจาะเลือดคุมจังหวะ', color: 'var(--bad)', opacity: .07 },
+              { from: 10, to: 15, label: 'ไม่มีหน่วยใดตึง', color: 'var(--ok)', opacity: .06 }],
+      label: 'คอขวดรายชั่วโมง',
+    }));
+    Chart.mount('apLegend', Chart.legend(show.map(function (id, i) {
+      return { name: FL.byId[id].short, color: Chart.SERIES[i % 8] };
+    })));
+  }
+  apChart();
+
+  /* ---------- Bottleneck Score ---------- */
+  function scores() {
+    var w1 = Site.v('w1'), w2 = Site.v('w2'), w3 = Site.v('w3');
+    if (w1 + w2 + w3 === 0) { w1 = 1; }
+    var tot = w1 + w2 + w3;
+    Site.show('w1', (w1 / tot).toFixed(2));
+    Site.show('w2', (w2 / tot).toFixed(2));
+    Site.show('w3', (w3 / tot).toFixed(2));
+
+    var rows = Q.bottleneckScores(FL.scoreInput(),
+      { utilization: w1, wait_share: w2, wait_growth: w3 });
+
+    var vals = {}, badge = {}, sub = {};
+    rows.forEach(function (r) {
+      vals[r.unit] = r.score;
+      badge[r.unit] = r.rank;
+      sub[r.unit] = 'B ' + r.score.toFixed(2);
+    });
+    FlowMap.draw('scoreMap', { values: vals, badge: badge, sub: sub, mode: 'score',
+      highlight: rows[0].unit });
+
+    var html = '';
+    rows.forEach(function (r) {
+      var bw = Math.max(r.score * 100, 1);
+      html += '<tr class="' + (r.rank === 1 ? 'is-flag' : '') + '">' +
+        '<td class="num"><strong>' + r.rank + '</strong></td>' +
+        '<th>' + r.name + '</th>' +
+        '<td class="num">' + (Number.isFinite(r.rho_peak) ? r.rho_peak.toFixed(2) : '—') + '</td>' +
+        '<td class="num">' + r.rho_term.toFixed(3) + '</td>' +
+        '<td class="num">' + (r.wait_share * 100).toFixed(1) + '%</td>' +
+        '<td class="num">' + r.growth_term.toFixed(3) + '</td>' +
+        '<td class="num"><strong>' + r.score.toFixed(3) + '</strong></td>' +
+        '<td><div style="height:8px;border-radius:4px;background:var(--bg-sunken);' +
+        'border:1px solid var(--line);overflow:hidden">' +
+        '<div style="height:100%;width:' + bw + '%;background:' +
+        (r.rank === 1 ? 'var(--bad)' : r.score > 0.35 ? 'var(--warn)' : 'var(--s1)') +
+        '"></div></div></td></tr>';
+    });
+    document.querySelector('#scoreTab tbody').innerHTML = html;
+
+    var top = rows[0], sec = rows[1];
+    document.getElementById('scoreNote').innerHTML =
+      '<div class="note" style="margin:16px 0 0"><strong>อันดับ 1 คือ ' + top.name +
+      '</strong> ด้วยคะแนน ' + top.score.toFixed(3) + ' ซึ่งสูงกว่าอันดับ 2 (' +
+      sec.name + ' = ' + sec.score.toFixed(3) + ') ถึง ' +
+      (top.score / sec.score).toFixed(1) + ' เท่า — ' +
+      'ช่องว่างที่กว้างขนาดนี้แปลว่าไม่ต้องลังเลว่าจะแก้ที่ไหนก่อน<br>' +
+      '<small style="color:var(--ink-soft)">สังเกตว่า ' + sec.name +
+      ' ขึ้นมาอันดับ 2 ด้วยเหตุผลที่ต่างกันสิ้นเชิง — ρ สูงแต่เวลารอน้อย ' +
+      'เพราะช่วงที่ ρ สูงนั้นสั้นมาก</small></div>';
+  }
+  Site.bind(['w1', 'w2', 'w3'], scores);
+
+  document.addEventListener('themechange', function () { shareChart(); apChart(); scores(); });
+})();
+</script>
+</body>
+</html>

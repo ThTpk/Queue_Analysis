@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ทฤษฎีคิวเพื่อการหาคอขวด</title>
+<meta name="description" content="อธิบายทฤษฎีคิว (Queueing Theory) ที่ใช้วิเคราะห์หาคอขวดของระบบ ตั้งแต่ Little's Law, Erlang-C, Kingman, G/G/c ถึงเครือข่ายคิว พร้อมกรณีศึกษาระบบ FlowLens และห้องทดลองจำลองแบบโต้ตอบ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="index.html" data-base="">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<section class="hero">
+  <p class="eyebrow">Queueing Theory for Bottleneck Analysis</p>
+  <h1>ทำไมคิวยาวขึ้น ทั้งที่กำลังยังไม่เต็ม</h1>
+  <p class="lede">
+    เว็บนี้อธิบายทฤษฎีคิวทุกตัวที่ใช้จริงในการหา <strong>คอขวด</strong> ของระบบบริการ
+    ตั้งแต่สูตรพื้นฐานจนถึงเครือข่ายคิวและการจำลอง โดยเดินตาม
+    <strong>กรณีศึกษาระบบ FlowLens</strong> — โปรแกรมวิเคราะห์คอขวดงานตรวจเลือดโรงพยาบาล —
+    ทุกตัวเลขที่ยกมาเป็นผลวิเคราะห์จริงจากชุดข้อมูลของระบบนั้น
+    และทุกบทมีห้องทดลองให้ลองเลื่อนค่าดูด้วยตัวเอง
+  </p>
+  <div class="herobtns">
+    <a class="btn primary" href="theory/01-basics.html">เริ่มอ่านบทที่ 1 →</a>
+    <a class="btn" href="sim/network.html">เปิดห้องทดลองทั้งระบบ</a>
+    <a class="btn" href="case/flowlens.html">ดูกรณีศึกษา FlowLens</a>
+  </div>
+</section>
+
+<h2 id="hook">ปัญหาที่เรากำลังจะแก้</h2>
+
+<p>
+  ห้องปฏิบัติการตรวจเลือดผู้ป่วยนอกแห่งหนึ่ง เปิด 06:30–16:30 รับผู้ป่วย
+  <strong>416 ราย/วัน</strong> ผ่าน 8 หน่วยบริการ ตั้งแต่ลงทะเบียนถึงส่งผลเข้า HIS
+  ผู้บริหารเห็นเพียงตัวเลขสุดท้าย: <strong>90% ของผู้ป่วยได้ผลภายใน 97 นาที</strong>
+  ซึ่งเกินเป้า และไม่มีใครรู้ว่าควรเติมคนที่จุดไหน
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="k">ผู้ป่วย</div><div class="v">416<span class="u">ราย/วัน</span></div><div class="d">20 วันทำการ 8,329 ราย</div></div>
+  <div class="stat is-bad"><div class="k">TAT p90</div><div class="v">96.8<span class="u">นาที</span></div><div class="d">ค่ากลาง 72 นาที</div></div>
+  <div class="stat is-bad"><div class="k">เวลารอทั้งหมดไปกองที่</div><div class="v">84%<span class="u"></span></div><div class="d">หน่วยเดียว: จุดเจาะเลือด</div></div>
+  <div class="stat"><div class="k">หน่วยบริการ</div><div class="v">8<span class="u">หน่วย</span></div><div class="d">3 ขั้นตอน pre/analytic/post</div></div>
+</div>
+
+<figure class="wide">
+  <div id="map"></div>
+  <figcaption>
+    ผังการไหลของงานจริง ระบายสีตามการใช้กำลัง ρ ในช่วงพีค —
+    กล่องแดงคือหน่วยที่ ρ ชนเพดาน 1.00 คลิกที่กล่องเพื่อดูตัวเลขของหน่วยนั้น
+    <span id="mapinfo"></span>
+  </figcaption>
+</figure>
+
+<p>
+  สังเกตว่าหน่วยส่วนใหญ่ "ดูปกติ" — เครื่องเคมีคลินิกใช้กำลังแค่ 81%
+  เครื่องโลหิตวิทยา 76% รับและปั่นแยก 70% ถ้าดูเฉพาะค่าเฉลี่ยทั้งวัน
+  ทุกหน่วยใช้กำลังไม่ถึงครึ่ง แต่คนไข้รอเป็นชั่วโมง
+  ทฤษฎีคิวคือเครื่องมือที่อธิบายความย้อนแย้งนี้ได้ และบอกได้ว่าควรแก้ที่ไหนก่อน
+</p>
+
+<div class="note">
+  <p class="boxtitle">สามข้อที่ทฤษฎีคิวตอบได้ แต่การดูค่าเฉลี่ยตอบไม่ได้</p>
+  <ol style="margin-bottom:0">
+    <li><strong>เวลารอไม่ได้โตเป็นเส้นตรงตามปริมาณงาน</strong> — มันโตแบบระเบิดเมื่อ ρ เข้าใกล้ 1</li>
+    <li><strong>ความผันแปรทำให้เกิดคิวได้เอง</strong> แม้กำลังจะพอในทางเฉลี่ย</li>
+    <li><strong>แก้หน่วยที่ไม่ใช่คอขวด = ไม่ได้อะไรเลย</strong> ระบบเร็วเท่าจุดที่ช้าที่สุดเท่านั้น</li>
+  </ol>
+</div>
+
+<h2 id="feel">ลองรู้สึกถึงมันก่อน</h2>
+
+<p>
+  ก่อนเข้าสูตร ลองเลื่อนดูด้วยตัวเอง: นี่คือจุดเจาะเลือดของจริง
+  เวลาเจาะเฉลี่ย 4.2 นาที ความผันแปร cv = 0.45 ช่วงพีคมีคนมา 2.8 ราย/นาที
+  คำถามคือ <em>เปิดกี่โต๊ะ</em> จึงจะไม่เกิดคิวสะสม — ข้อมูลจริงเปิดอยู่ 7 โต๊ะ
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลองที่ 0 — เพดานที่มองไม่เห็น</span>
+    <span class="hint">เลื่อนจำนวนโต๊ะทีละหนึ่ง สังเกตว่าเวลารอกระโดดตรงไหน</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="c0"><span>จำนวนโต๊ะเจาะเลือด <code>c</code></span><span class="val" id="c0V"></span></label>
+          <input type="range" id="c0" min="5" max="16" step="1" value="7">
+          <div class="sub">ข้อมูลจริงเปิด <strong>7</strong> โต๊ะ · config ประกาศไว้ <strong>11</strong> โต๊ะ</div>
+        </div>
+        <div class="ctrl">
+          <label for="l0"><span>คนมาถึงช่วงพีค <code>λ</code></span><span class="val" id="l0V"></span></label>
+          <input type="range" id="l0" min="1.0" max="3.0" step="0.01" value="1.73">
+          <div class="sub">ค่าเฉลี่ยช่วงพีค 06:30–09:00 = 1.73 ราย/นาที<br>ครึ่งชั่วโมงแรก (06:30–07:00) พุ่งถึง 2.81</div>
+        </div>
+        <div id="verdict0"></div>
+      </div>
+      <div>
+        <div class="stats" style="margin-top:0;grid-template-columns:repeat(auto-fit,minmax(118px,1fr))">
+          <div class="stat" id="t0rho"><div class="k">ใช้กำลัง ρ</div><div class="v">—</div></div>
+          <div class="stat" id="t0wq"><div class="k">รอเฉลี่ย</div><div class="v">—</div></div>
+          <div class="stat" id="t0p90"><div class="k">รอ p90</div><div class="v">—</div></div>
+          <div class="stat" id="t0lq"><div class="k">คนในคิว</div><div class="v">—</div></div>
+        </div>
+        <div id="chart0"></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>เวลารอเฉลี่ย (G/G/c)</span>
+          <span><i style="background:var(--s2)"></i>เวลารอ p90</span>
+          <span><i style="height:0;border-top:2px dashed var(--ink-faint);border-radius:0"></i>ค่าที่คุณเลือก</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p>
+  โต๊ะที่ 8 กับโต๊ะที่ 7 ต่างกันเพียง <strong>หนึ่งคน</strong>
+  แต่ผลต่างคือ "รอ 2–3 นาที" กับ "คิวโตไม่หยุดจนกว่าคนจะหมด"
+  นั่นคือเพดานที่มองไม่เห็น ซึ่งทฤษฎีคิวคำนวณได้ล่วงหน้า โดยไม่ต้องรอให้คิวเกิดขึ้นจริง
+  และเป็นเหตุผลว่าทำไมหน่วยนี้จึงกินเวลารอของทั้งระบบไป 84%
+</p>
+
+<h2 id="path">อ่านทางไหนดี</h2>
+
+<div class="cards">
+  <div class="card">
+    <p class="boxtitle">ถ้าคุณคือผู้บริหาร/หัวหน้าหน่วย</p>
+    <p style="margin-bottom:.5em">อ่าน <a href="theory/02-littles-law.html">บทที่ 2</a> →
+      <a href="theory/07-bottleneck.html">บทที่ 7</a> →
+      <a href="case/flowlens.html">กรณีศึกษา</a> แล้วลองเล่น
+      <a href="sim/staffing.html">หน้าวางแผนโต๊ะ</a></p>
+    <p style="margin-bottom:0"><small>ได้คำตอบว่า "เติมคนกี่คน ตรงไหน ช่วงไหน ลดเวลารอได้กี่นาที ค่าใช้จ่ายเท่าไร"</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">ถ้าคุณคือนักศึกษา/ผู้เรียน</p>
+    <p style="margin-bottom:.5em">อ่านเรียงบทที่ 1 → 9 ทุกบทมีตัวอย่างคำนวณทีละบรรทัดและห้องทดลองประจำบท</p>
+    <p style="margin-bottom:0"><small>ครอบคลุม Kendall notation, birth–death, Erlang-B/C, Kingman VUT, Sakasegawa, Jackson network, PASTA</small></p>
+  </div>
+  <div class="card">
+    <p class="boxtitle">ถ้าคุณคือวิศวกร/นักวิเคราะห์</p>
+    <p style="margin-bottom:.5em">ข้ามไป <a href="theory/05-ggc.html">บทที่ 5</a>,
+      <a href="theory/09-nonstationary.html">บทที่ 9</a> แล้วเทียบกับ
+      <a href="sim/network.html">ตัวจำลองทั้งระบบ</a></p>
+    <p style="margin-bottom:0"><small>สูตรทุกตัวในเว็บนี้พอร์ตตรงจาก <code>flowlens/core/analysis/queueing.py</code> ดูโค้ดได้ที่ <code>assets/js/queue.js</code></small></p>
+  </div>
+</div>
+
+<h2 id="contents">สารบัญทั้งหมด</h2>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="takeaway">
+  <h4>กรณีศึกษานี้มาจากไหน</h4>
+  <p style="margin-bottom:.6em">
+    FlowLens เป็นโปรแกรมทำงานแบบ offline ที่รับ event log การใช้บริการ (CSV/Excel)
+    กับไฟล์ config ที่บอกโครงสร้างหน่วยบริการ แล้วบอกว่าคอขวดอยู่ไหน สาเหตุคืออะไร
+    และข้อเสนอแต่ละข้อลดเวลารอได้กี่นาที — โดยใช้ 5 ทฤษฎีร่วมกัน
+    (Lean, Queueing, Theory of Constraints, Six Sigma, Simulation)
+  </p>
+  <p style="margin-bottom:0">
+    ตัวเลขทุกตัวในเว็บนี้มาจากชุดข้อมูล <code>samples/demo_basic</code> ของ FlowLens
+    (20 วันทำการ 8,329 ราย, seed 42) ซึ่งเป็นข้อมูลสังเคราะห์ที่มี
+    <strong>เฉลยกำกับ</strong> — รู้ล่วงหน้าว่าคอขวดจริงคือจุดเจาะเลือด
+    เพราะเปิดจริงแค่ 7 โต๊ะ ขณะที่ config ประกาศ 11 โต๊ะ
+    จึงใช้ตรวจได้ว่าทฤษฎีชี้ถูกจุดหรือไม่
+  </p>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="assets/js/queue.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/flowlens-data.js"></script>
+<script src="assets/js/flowmap.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- ผังการไหล ---------- */
+  var vals = {}, sub = {};
+  FL.units.forEach(function (u) {
+    vals[u.id] = u.truth.rhoPeak;
+    sub[u.id] = (u.type === 'transport')
+      ? 'ส่งต่อเนื่อง'
+      : 'ρ ' + u.truth.rhoPeak.toFixed(2) + ' · ' + FL.serversAt(u, 7 * 60 + 30) + ' โต๊ะ';
+  });
+  function drawMap() {
+    FlowMap.draw('map', {
+      values: vals, sub: sub, mode: 'rho', highlight: 'PHLEB',
+      onClick: function (id) {
+        var u = FL.byId[id];
+        document.getElementById('mapinfo').innerHTML =
+          '<br><strong>' + u.name + '</strong> — เวลาบริการ ' + u.serviceMean +
+          ' นาที (cv ' + u.cv + '), โต๊ะช่วงพีค ' + FL.serversAt(u, 7 * 60 + 30) +
+          ', ρ พีค ' + (Number.isFinite(u.truth.rhoPeak) ? u.truth.rhoPeak.toFixed(2) : '—') +
+          ', รอเฉลี่ย ' + u.truth.waitMean.toFixed(1) + ' นาที, รอ p90 ' +
+          u.truth.waitP90.toFixed(1) + ' นาที, สัดส่วนเวลารอ ' +
+          (u.truth.waitShare * 100).toFixed(1) + '%';
+      },
+    });
+  }
+  drawMap();
+  document.addEventListener('themechange', drawMap);
+
+  /* ---------- สารบัญแบบการ์ด ---------- */
+  var html = '';
+  Site.PAGES.forEach(function (p) {
+    if (p.href === 'index.html') return;
+    html += '<a class="tile" href="' + p.href + '">' +
+      '<span class="n">' + (p.n ? 'บทที่ ' + p.n : p.g) + '</span>' +
+      '<div class="t">' + p.t + '</div>' +
+      '<div class="d">' + (p.d || '') + '</div></a>';
+  });
+  document.getElementById('tiles').innerHTML = html;
+
+  /* ---------- ห้องทดลองที่ 0 ---------- */
+  var ES = 4.2, CS2 = 0.45 * 0.45, CA2 = 1.0;
+  function lab0() {
+    var c = Site.v('c0'), lam = Site.v('l0');
+    Site.show('c0', c + ' โต๊ะ');
+    Site.show('l0', lam.toFixed(2) + ' ราย/นาที');
+
+    var r = Q.rho(lam, ES, c);
+    var wq = Q.wqGGc(lam, ES, c, CA2, CS2);
+    var p90 = Q.wqPercentile(lam, ES, c, 0.9, CA2, CS2);
+    var lq = Number.isFinite(wq) ? lam * wq : Infinity;
+
+    function set(id, v, cls) {
+      var e = document.getElementById(id);
+      e.className = 'stat' + (cls ? ' ' + cls : '');
+      e.querySelector('.v').innerHTML = v;
+    }
+    set('t0rho', r.toFixed(2), r >= 1 ? 'is-bad' : r > .85 ? 'is-warn' : 'is-ok');
+    set('t0wq', Number.isFinite(wq) ? wq.toFixed(1) + '<span class="u">นาที</span>' : '∞',
+        !Number.isFinite(wq) || wq > 20 ? 'is-bad' : wq > 8 ? 'is-warn' : 'is-ok');
+    set('t0p90', Number.isFinite(p90) ? p90.toFixed(0) + '<span class="u">นาที</span>' : '∞',
+        !Number.isFinite(p90) || p90 > 30 ? 'is-bad' : p90 > 15 ? 'is-warn' : 'is-ok');
+    set('t0lq', Number.isFinite(lq) ? Math.round(lq) + '<span class="u">คน</span>' : '∞',
+        !Number.isFinite(lq) || lq > 40 ? 'is-bad' : lq > 15 ? 'is-warn' : 'is-ok');
+
+    var msg;
+    if (r >= 1) {
+      msg = '<div class="warnbox" style="margin:14px 0 0"><strong>ρ ≥ 1 — คิวโตไม่หยุด</strong><br>' +
+        'งานเข้ามาเร็วกว่าที่ระบายออกได้ สูตรคิวให้ค่า ∞ เพราะไม่มีสมดุล ' +
+        'ของจริงคือคิวยาวขึ้นเรื่อย ๆ จนกว่าคนจะหยุดมา นี่คือสิ่งที่เกิดขึ้นจริงที่ 7 โต๊ะ</div>';
+    } else if (r > 0.85) {
+      msg = '<div class="warnbox" style="margin:14px 0 0"><strong>เกินเกณฑ์ 0.85</strong><br>' +
+        'FlowLens ตั้งเพดาน <code>max_utilization = 0.85</code> ไว้ตรงนี้พอดี ' +
+        'เพราะเหนือกว่านี้เวลารอไวต่อการเปลี่ยนแปลงเล็กน้อยมากเกินจะวางแผนได้</div>';
+    } else {
+      msg = '<div class="tip" style="margin:14px 0 0"><strong>อยู่ในเกณฑ์</strong><br>' +
+        'ρ = ' + r.toFixed(2) + ' ต่ำกว่าเพดาน 0.85 เวลารอ p90 ' + p90.toFixed(0) +
+        ' นาที — ระบบยังมีที่ว่างรับความผันผวนรายวัน</div>';
+    }
+    document.getElementById('verdict0').innerHTML = msg;
+
+    var cs = [], ps = [];
+    for (var k = 5; k <= 16; k++) {
+      var w = Q.wqGGc(lam, ES, k, CA2, CS2);
+      var p = Q.wqPercentile(lam, ES, k, 0.9, CA2, CS2);
+      cs.push([k, Number.isFinite(w) ? Math.min(w, 120) : 120]);
+      ps.push([k, Number.isFinite(p) ? Math.min(p, 120) : 120]);
+    }
+    Chart.mount('chart0', Chart.lineChart({
+      width: 560, height: 230, x0: 5, x1: 16, y0: 0, y1: 120,
+      nx: 11, xlabel: 'จำนวนโต๊ะ c', ylabel: 'นาที',
+      xfmt: function (v) { return String(Math.round(v)); },
+      series: [
+        { points: cs, color: 'var(--s1)', dots: true },
+        { points: ps, color: 'var(--s2)', dots: true, dash: '5 3' },
+      ],
+      rules: [{ x: c, color: 'var(--ink-faint)', label: 'c = ' + c }],
+      label: 'เวลารอเทียบจำนวนโต๊ะ',
+    }));
+  }
+  Site.bind(['c0', 'l0'], lab0);
+  document.addEventListener('themechange', lab0);
+})();
+</script>
+</body>
+</html>

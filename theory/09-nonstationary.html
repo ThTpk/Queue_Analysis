@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 9 — เมื่อสูตรใช้ไม่ได้: โหลดพุ่งชั่วคราวและการจำลอง</title>
+<meta name="description" content="ρ ≥ 1 ชั่วคราว, fluid model, pointwise stationary approximation, การจำลองเหตุการณ์ไม่ต่อเนื่อง และวิธีตรวจว่าแบบจำลองเหมือนของจริงที่ FlowLens ใช้">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/09-nonstationary.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 9</p>
+  <h1>เมื่อสูตรใช้ไม่ได้</h1>
+  <p class="lede">
+    สูตรคิวทุกตัวที่ผ่านมาสมมติว่าระบบนิ่งแล้ว แต่ระบบจริงไม่เคยนิ่ง
+    บทนี้ว่าด้วยสิ่งที่เกิดขึ้นในสองชั่วโมงครึ่งแรกของวัน และเครื่องมือที่ใช้แทน
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="problem">1. ปัญหา</h2>
+
+<figure>
+  <div id="arrChart"></div>
+  <figcaption>
+    ผู้ป่วยที่มาถึงในแต่ละช่วง 30 นาที (ข้อมูลจริง เฉลี่ย 20 วัน) —
+    ช่วง 06:30–07:00 มีคน 84 ราย ขณะที่ช่วง 14:00–14:30 มี 2.75 ราย
+    <strong>ต่างกัน 31 เท่า</strong> เส้นประคือกำลังของจุดเจาะเลือดที่เปิดจริง
+  </figcaption>
+</figure>
+
+<div class="warnbox">
+  <p style="margin-bottom:0">
+    สูตร <span class="katex-nowrap">$W_q = \rho E[S]/(1-\rho)$</span> ตอบคำถาม
+    "ถ้าปล่อยให้เป็นแบบนี้ไปตลอดกาล คิวจะนิ่งที่เท่าไร"
+    แต่ช่วงพีคของโรงพยาบาลยาวแค่ 2.5 ชั่วโมง และจบลงก่อนที่ระบบจะเข้าสู่สถานะคงตัวเสียอีก
+    ยิ่งไปกว่านั้น เมื่อ ρ ≥ 1 <strong>ไม่มีสถานะคงตัวให้เข้าถึงเลย</strong>
+  </p>
+</div>
+
+<h2 id="fluid">2. แบบจำลองของไหล (fluid model)</h2>
+
+<p>
+  วิธีที่ง่ายที่สุดและให้ภาพชัดที่สุด: ลืมเรื่องความสุ่มไปก่อน
+  มองงานเป็น<strong>ของเหลวที่ไหลเข้าถัง</strong> และโต๊ะคือท่อระบาย
+</p>
+
+<div class="formula">
+  $$\frac{dQ}{dt} \;=\;
+  \begin{cases}
+    \lambda(t) - \mu c(t) & Q(t) > 0 \;\text{ หรือ }\; \lambda(t) > \mu c(t)\\[4pt]
+    0 & \text{อื่น ๆ}
+  \end{cases}$$
+  <div class="caption">
+    คิวสะสมเมื่ออัตราไหลเข้ามากกว่าอัตราระบาย และลดลงเมื่อกลับกัน
+    แต่ลงต่ำกว่าศูนย์ไม่ได้
+  </div>
+</div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 9.1 — คิวเช้าวันทำงาน ที่ 7 โต๊ะ</header>
+  <div class="body">
+    <div class="calc">กำลังระบาย = 7 โต๊ะ / 4.2 นาที = 1.667 ราย/นาที
+
+ช่วงเวลา      λ(ราย/นาที)  ส่วนเกิน/นาที   คิวสะสมเมื่อจบช่วง
+─────────────────────────────────────────────────────────
+ก่อน 06:30         —            —          <span class="hl">49.6</span>  (มารอก่อนเปิด)
+06:30–07:00      2.813       +1.147          83.9
+07:00–07:30      2.488       +0.822         <span class="hl">108.6</span>  ← สูงสุด
+07:30–08:00      1.652       −0.015         108.1
+08:00–08:30      1.075       −0.592          90.4
+08:30–09:00      0.630       −1.037          59.3
+09:00–09:30      0.408       −1.020          28.6  (โต๊ะลดเหลือ 6)
+09:30–10:00      0.430       −0.999           0.0  ระบายหมดราว 09:58
+
+พื้นที่ใต้กราฟคิว ≈ 15,100 คน-นาที
+เวลารอเฉลี่ย = 15,100 / 416 = <span class="hl">36.3 นาที</span></div>
+    <div class="tablewrap" style="margin-bottom:0">
+      <table>
+        <thead><tr><th>ค่า</th><th class="num">fluid model</th><th class="num">ข้อมูลจริง</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>
+          <tr><th>คิวสูงสุด</th><td class="num">109</td><td class="num">140</td>
+            <td><small>fluid มองข้ามความสุ่ม จึงได้ค่าต่ำกว่าจุดสูงสุดจริง</small></td></tr>
+          <tr><th>เวลารอเฉลี่ย</th><td class="num">36.3 นาที</td><td class="num">31.4 นาที</td>
+            <td><small>ใกล้เคียง คลาดเคลื่อน 16%</small></td></tr>
+          <tr><th>คิวหมดเมื่อ</th><td class="num">~09:58</td><td class="num">ρ&lt;0.35 หลัง 10:00</td>
+            <td><small>ตรงกัน</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="tip">
+  <p class="boxtitle">ของฟรีจาก fluid model</p>
+  <p style="margin-bottom:0">
+    คำนวณด้วยมือหรือ Excel ได้ภายในสิบนาที ไม่ต้องใช้ซอฟต์แวร์จำลอง
+    และให้ตัวเลขที่ถูกต้อง<strong>ในระดับที่ตัดสินใจได้</strong>
+    เมื่อ ρ เกิน 1 อย่างชัดเจน — เพราะในสถานการณ์นั้น
+    ความสุ่มเป็นเพียงส่วนประกอบเล็ก ๆ เทียบกับการขาดกำลังที่เป็นระบบ
+  </p>
+</div>
+
+<h2 id="hangover">3. "อาการค้าง" — ผลที่อยู่นานกว่าเหตุ</h2>
+
+<p>
+  สังเกตในตารางข้างบน: ความต้องการตกต่ำกว่ากำลังตั้งแต่ 07:30
+  แต่คิวยัง<strong>ไม่หมดจนถึงเกือบ 10:00</strong> — อีกสองชั่วโมงครึ่งหลังจากนั้น
+</p>
+
+<p>
+  นี่คือเหตุผลที่ผู้ป่วยคนที่มาถึงตอน 08:30 (ซึ่งเป็นช่วงที่ ρ ขณะนั้นเพียง 0.65)
+  ยังต้องรอนาน ทั้งที่ "ดูจากตัวเลขแล้วไม่น่ารอ"
+  การคำนวณแบบรายช่วงอิสระ (SIPP ใน <a href="08-staffing.html">บทที่ 8</a>)
+  จะพลาดจุดนี้ทั้งหมด เพราะมันไม่รู้ว่ามีคิวค้างมาจากช่วงก่อน
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 9.1 — คิวทั้งวันที่จุดเจาะเลือด</span>
+    <span class="hint">เลื่อนจำนวนโต๊ะและเวลาเข้ากะ ดูคิวสะสมทั้งวัน</span>
+  </header>
+  <div class="body">
+    <div class="grid g3" style="margin:0 0 14px">
+      <div class="ctrl" style="margin:0">
+        <label for="cp"><span>โต๊ะช่วงพีค</span><span class="val" id="cpV"></span></label>
+        <input type="range" id="cp" min="5" max="18" step="1" value="7">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="t0"><span>กะพีคเริ่ม</span><span class="val" id="t0V"></span></label>
+        <input type="range" id="t0" min="360" max="480" step="15" value="390">
+      </div>
+      <div class="ctrl" style="margin:0">
+        <label for="t1"><span>กะพีคจบ</span><span class="val" id="t1V"></span></label>
+        <input type="range" id="t1" min="510" max="720" step="15" value="540">
+      </div>
+    </div>
+    <div class="btnrow">
+      <label class="switch"><input type="checkbox" id="showSim" checked>
+        <span>แสดงผลจากการจำลองเหตุการณ์จริงด้วย</span></label>
+    </div>
+    <div id="fluidChart"></div>
+    <div class="legend">
+      <span><i style="background:var(--s1)"></i>คิว — fluid model</span>
+      <span><i style="background:var(--s2)"></i>คิว — จำลองเหตุการณ์ (สุ่มจริง)</span>
+      <span><i style="background:var(--s5)"></i>λ(t) ผู้ป่วยที่มาถึง <small>(ปรับสเกล)</small></span>
+      <span><i style="background:var(--s3)"></i>กำลังระบาย μc(t) <small>(ปรับสเกล)</small></span>
+    </div>
+    <div id="fluidOut"></div>
+  </div>
+</div>
+
+<h2 id="psa">4. ทำไมการคำนวณรายช่วงจึงพลาด</h2>
+
+<p>
+  วิธีที่ใช้กันมากที่สุดเรียกว่า <strong>PSA</strong> (Pointwise Stationary Approximation)
+  — เอา λ ของแต่ละช่วงไปใส่สูตรสถานะคงตัว แล้วถือว่าผลลัพธ์คือเวลารอของช่วงนั้น
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>เงื่อนไข</th><th>PSA ใช้ได้ไหม</th><th>เหตุผล</th></tr></thead>
+  <tbody>
+    <tr><th>λ เปลี่ยนช้าเทียบกับเวลาบริการ</th><td><span class="pill ok">ใช้ได้ดี</span></td>
+      <td>ระบบมีเวลาปรับตัวเข้าสู่สมดุลของแต่ละช่วง</td></tr>
+    <tr><th>ρ &lt; 0.8 ตลอด</th><td><span class="pill ok">ใช้ได้</span></td>
+      <td>คิวสั้น ระบายทันก่อนช่วงถัดไป</td></tr>
+    <tr class="is-flag"><th>ρ ใกล้ 1 หรือเกิน 1 บางช่วง</th><td><span class="pill bad">ใช้ไม่ได้</span></td>
+      <td>ไม่มีสมดุลให้เข้าถึง และคิวค้างข้ามช่วง</td></tr>
+    <tr class="is-flag"><th>ช่วงเวลาสั้นกว่าเวลาที่ระบบใช้ปรับตัว</th><td><span class="pill bad">ใช้ไม่ได้</span></td>
+      <td>ระบบ "ตามไม่ทัน" การเปลี่ยนแปลงของ λ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  วิธีแก้ราคาถูกคือ <strong>Lag SIPP</strong>: เลื่อนช่วงที่ใช้คำนวณไปข้างหน้า
+  ประมาณหนึ่งเท่าของเวลารอโดยประมาณ (เพราะผลของคนที่มาถึงตอนนี้
+  จะปรากฏเป็นคิวในอีกสักครู่) แต่วิธีที่ตรงที่สุดและไม่ต้องหาข้ออ้าง คือจำลอง
+</p>
+
+<h2 id="sim">5. การจำลองเหตุการณ์ไม่ต่อเนื่อง</h2>
+
+<p>
+  <strong>Discrete-Event Simulation</strong> ไม่ใช้สูตรเลย แต่สร้างผู้ป่วยทีละคน
+  ให้เดินผ่านระบบจริง ๆ แล้วจดเวลาไว้ มันจึงรองรับทุกอย่างที่สูตรรองรับไม่ได้
+</p>
+
+<div class="cards">
+  <div class="card"><p class="boxtitle">สิ่งที่จำลองได้ แต่สูตรทำไม่ได้</p>
+    <ul style="margin-bottom:0">
+      <li>λ และ c ที่เปลี่ยนทุกนาที</li>
+      <li>คิวค้างข้ามช่วงเวลา</li>
+      <li>ρ ≥ 1 ชั่วคราว</li>
+      <li>เคสด่วนแซงคิว</li>
+      <li>การบล็อกเมื่อปลายน้ำเต็ม</li>
+      <li>เครื่องเสีย/หยุด QC</li>
+      <li>พักเบรก คนถูกเรียกไปทำอย่างอื่น</li>
+      <li>งานทำซ้ำที่ขึ้นกับผลตรวจ</li>
+    </ul>
+  </div>
+  <div class="card"><p class="boxtitle">ราคาที่ต้องจ่าย</p>
+    <ul style="margin-bottom:0">
+      <li>ต้องรันหลายรอบ เพราะผลแต่ละรอบไม่เหมือนกัน</li>
+      <li>ช้ากว่าสูตรเป็นพันเท่า</li>
+      <li>ไม่ให้ "ความเข้าใจ" เหมือนสูตร — ได้ตัวเลขแต่ไม่ได้เหตุผล</li>
+      <li><strong>ต้องพิสูจน์ว่ามันเหมือนของจริง</strong> ก่อนเชื่อผล</li>
+    </ul>
+  </div>
+</div>
+
+<h3>FlowLens จำลองอย่างไร</h3>
+
+<ol class="steps">
+  <li><span class="st">สร้างแบบจำลองฐาน (baseline)</span>
+    ใช้ SimPy สร้างหน่วยทุกหน่วยตาม config จำนวนโต๊ะตามกะจริง
+    เวลาบริการ lognormal ที่ mean และ cv วัดจากข้อมูล
+    λ(t) จาก event log จริงแบ่งช่วงละ 15 นาที
+    แยกตามกลุ่มวัน (จันทร์ / อังคาร–พฤหัส / ศุกร์)</li>
+  <li><span class="st">รันซ้ำหลายรอบ</span>
+    ค่าเริ่มต้น <code>sim_replications = 30</code> รอบ
+    เพราะผลรอบเดียวคือ "หนึ่งวันที่เป็นไปได้" ไม่ใช่คำตอบ</li>
+  <li><span class="st">ตรวจว่าเหมือนของจริงไหม (validation)</span>
+    กันข้อมูลไว้ 1 สัปดาห์ (<code>holdout_weeks: 1</code>) ไม่ให้แบบจำลองเห็น
+    แล้วเทียบผลกับสัปดาห์นั้น</li>
+  <li><span class="st">ทำ what-if</span>
+    เปลี่ยนจำนวนโต๊ะ เวลาเปิด อัตราทำซ้ำ ความผันแปร แล้วรันใหม่ทั้งชุด</li>
+  <li><span class="st">คำนวณผลสะสม</span>
+    ไม่บวกผลของข้อเสนอแต่ละข้อ แต่รันชุดรวมใหม่ทุกครั้ง</li>
+</ol>
+
+<h3>เกณฑ์ตรวจความเหมือนจริง</h3>
+
+<p>
+  นี่คือส่วนที่คนส่วนใหญ่ข้าม และเป็นเหตุผลที่แบบจำลองจำนวนมากไม่น่าเชื่อถือ
+  FlowLens กำหนดเกณฑ์ไว้ใน <code>config.yaml</code> ตรง ๆ
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ค่าที่ตรวจ</th><th class="num">ยอมให้ต่างได้</th><th>เหตุผลที่ตั้งเท่านี้</th></tr></thead>
+  <tbody>
+    <tr><th>TAT (เวลารวมต่อราย)</th><td class="num">10%</td><td>ตัวชี้วัดหลักที่รายงาน ต้องแม่นที่สุด</td></tr>
+    <tr><th>เวลารอ</th><td class="num">15%</td><td>ผันผวนมากตามธรรมชาติ</td></tr>
+    <tr><th>ความยาวคิว</th><td class="num">15%</td><td>เช่นเดียวกัน</td></tr>
+    <tr><th>การใช้กำลัง ρ</th><td class="num">5%</td><td>คำนวณจากปริมาณงานตรง ๆ ถ้าเพี้ยนแปลว่าโมเดลผิดโครงสร้าง</td></tr>
+    <tr><th>ปริมาณงานที่ทำได้</th><td class="num">5%</td><td>เช่นเดียวกัน — ต้องตรงเกือบเป๊ะ</td></tr>
+    <tr><th>การแจกแจง (KS test)</th><td class="num">α = 0.05</td><td>ไม่ใช่แค่ค่าเฉลี่ยตรง แต่<strong>รูปร่างทั้งการแจกแจง</strong>ต้องตรงด้วย</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <p style="margin-bottom:0">
+    การทดสอบ <strong>Kolmogorov–Smirnov</strong> เป็นด่านที่เข้มที่สุด
+    มันเทียบรูปร่างของการแจกแจงทั้งก้อน ไม่ใช่แค่ค่าเฉลี่ย
+    แบบจำลองที่ให้ค่าเฉลี่ยตรงแต่ "ไม่มีหางยาว" จะไม่ผ่านด่านนี้ —
+    ซึ่งสำคัญมาก เพราะเป้าหมายของโรงพยาบาลเขียนเป็น p90 ที่อยู่บนหางพอดี
+  </p>
+</div>
+
+<h2 id="choose">6. สรุปว่าควรใช้เครื่องมือไหนเมื่อไร</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>คำถาม</th><th>เครื่องมือ</th><th>เวลาที่ใช้</th></tr></thead>
+  <tbody>
+    <tr><th>"หน่วยนี้กำลังพอไหม"</th><td>a = λE[S] เทียบ c</td><td>10 วินาที</td></tr>
+    <tr><th>"ต้องเปิดกี่โต๊ะ"</th><td>c ≈ a + β√a หรือ Erlang-C ย้อนกลับ</td><td>1 นาที</td></tr>
+    <tr><th>"ผู้ป่วย 90% รอไม่เกินกี่นาที"</th><td>Sakasegawa + wq_percentile</td><td>1 นาที</td></tr>
+    <tr><th>"คิวเช้านี้จะยาวแค่ไหน และหมดเมื่อไร"</th><td><strong>fluid model</strong></td><td>10 นาที (Excel ก็ได้)</td></tr>
+    <tr><th>"ถ้าทำข้อ 1+3+5 พร้อมกัน TAT p90 ลดกี่นาที"</th><td><strong>การจำลอง</strong></td><td>หลายนาทีถึงชั่วโมง</td></tr>
+    <tr><th>"ตัวเลขที่จะเอาไปเสนอ เชื่อได้ไหม"</th><td>การจำลอง + validation กับข้อมูลที่กันไว้</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 9</h4>
+  <ul>
+    <li>สูตรคิวทุกตัวสมมติ<strong>สถานะคงตัว</strong> ซึ่งไม่เคยเกิดจริงในช่วงพีค</li>
+    <li><strong>fluid model</strong> คำนวณคิวสะสมได้ด้วย Excel และแม่นพอจะตัดสินใจเมื่อ ρ เกิน 1 ชัด ๆ</li>
+    <li>คิวที่สะสมตอนเช้าใช้เวลาระบาย<strong>นานกว่าช่วงที่สร้างมันขึ้นมา</strong> — ผู้ป่วยที่มาตอนสายจึงยังรอนาน</li>
+    <li>PSA/SIPP ใช้ไม่ได้เมื่อ ρ ใกล้หรือเกิน 1 — ต้องใช้ Lag SIPP หรือการจำลอง</li>
+    <li>การจำลองรองรับทุกอย่าง แต่<strong>ต้องผ่าน validation ก่อนเชื่อ</strong> รวมถึง KS test ที่เทียบทั้งรูปร่างการแจกแจง</li>
+    <li>ใช้เครื่องมือให้ตรงกับคำถาม — สูตรสำหรับความเข้าใจ การจำลองสำหรับตัวเลขสุดท้าย</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/des.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ES = 4.2, CS2 = 0.20, BASE = 6;
+
+  /* ---------- กราฟคนมาถึง ---------- */
+  function arrChart() {
+    var labs = [], vals = [];
+    FL.arrivalBins.forEach(function (b) {
+      labs.push(Q.fmt.clock(b));
+      vals.push(FL.arrivalProfile30[b]);
+    });
+    Chart.mount('arrChart', Chart.barChart({
+      width: 700, height: 260, labels: labs, rotate: true,
+      series: [{ values: vals, colors: vals.map(function (v) {
+        return v > 50 ? 'var(--bad)' : v > 25 ? 'var(--warn)' : 'var(--s1)'; }) }],
+      ylabel: 'ผู้ป่วยต่อช่วง 30 นาที',
+      rules: [{ y: (7 / ES) * 30, color: 'var(--s3)', label: 'กำลังของ 7 โต๊ะ = 50 ราย/30 นาที' }],
+      margin: { t: 14, r: 16, b: 56, l: 48 },
+      label: 'โปรไฟล์การมาถึงของผู้ป่วย',
+    }));
+  }
+  arrChart();
+
+  /* ---------- fluid + simulation ---------- */
+  function serversAt(t, cPeak, t0, t1) {
+    if (t < FL.project.openFrom) return 0;     // ยังไม่เปิดบริการ คนมารอหน้าห้อง
+    if (t >= t0 && t < t1) return cPeak;
+    return BASE;
+  }
+
+  function fluid() {
+    var cPeak = Site.v('cp'), t0 = Site.v('t0'), t1 = Site.v('t1');
+    Site.show('cp', cPeak + ' โต๊ะ');
+    Site.show('t0', Q.fmt.clock(t0));
+    Site.show('t1', Q.fmt.clock(t1));
+
+    var open = FL.project.openFrom, close = FL.project.openTo;
+    var qq = [], lamPts = [], capPts = [];
+    var Qd = FL.arrivalProfile30[360] || 0;     // คนที่มารอก่อนเปิด
+    var area = 0, qMax = Qd, qMaxT = open;
+
+    for (var t = open; t <= close; t += 1) {
+      var lam = FL.arrivalRate(t);
+      var cap = serversAt(t, cPeak, t0, t1) / ES;
+      var dQ = lam - cap;
+      Qd = Math.max(0, Qd + dQ);
+      area += Qd;
+      if (Qd > qMax) { qMax = Qd; qMaxT = t; }
+      if (t % 5 === 0) {
+        qq.push([t, Qd]);
+        lamPts.push([t, lam]);
+        capPts.push([t, cap]);
+      }
+    }
+    var meanWait = area / FL.project.patientsPerDay;
+
+    var simMax = null, simMean = null, simPts = null;
+    if (document.getElementById('showSim').checked) {
+      var sim = new DES.Sim({
+        stations: [{ id: 'P', name: 'จุดเจาะเลือด', serviceMean: ES, scv: CS2,
+          serversAt: function (t) { return serversAt(t, cPeak, t0, t1); } }],
+        routes: [{ from: 'ARRIVAL', to: 'P', p: 1 }, { from: 'P', to: 'EXIT', p: 1 }],
+        arrivalRate: function (t) { return FL.arrivalRate(t); },
+        lamMax: 2.82, tStart: 345, tEnd: close, seed: 42,
+      });
+      var pts = [], mx = 0;
+      for (var tt = 345; tt <= close; tt += 5) {
+        sim.runUntil(tt);
+        var q = sim.st.P.queue.length;
+        if (tt >= open) pts.push([tt, q]);
+        if (q > mx) mx = q;
+      }
+      var sm = sim.summary().units[0];
+      simMax = mx; simMean = sm.waitMean; simPts = pts;
+    }
+
+    var yTop = Math.max(Chart.nice(Math.max(qMax, simMax || 0) * 1.15), 20);
+    /* ปรับสเกลเส้นอัตรา (ราย/นาที) ให้อยู่ในหนึ่งในสามล่างของกราฟ */
+    var k = yTop / 3 / 3.0;
+    var series = [
+      { points: lamPts.map(function (p) { return [p[0], p[1] * k]; }),
+        color: 'var(--s5)', width: 1.6, dash: '4 3' },
+      { points: capPts.map(function (p) { return [p[0], p[1] * k]; }),
+        color: 'var(--s3)', width: 1.8 },
+      { points: qq, color: 'var(--s1)', width: 2.8, fill: true },
+    ];
+    if (simPts) series.push({ points: simPts, color: 'var(--s2)', width: 2, dash: '3 2' });
+    Chart.mount('fluidChart', Chart.lineChart({
+      width: 760, height: 320, x0: open, x1: close, y0: 0, y1: yTop, nx: 10,
+      xlabel: 'เวลา', ylabel: 'จำนวนคนในคิว',
+      xfmt: function (v) { return Q.fmt.clock(v); },
+      series: series,
+      rules: [{ x: qMaxT, color: 'var(--ink-faint)', label: 'คิวสูงสุด ' + Q.fmt.clock(qMaxT) }],
+      bands: [{ from: t0, to: t1, label: 'กะพีค (' + cPeak + ' โต๊ะ)' }],
+      label: 'คิวสะสมตลอดวัน',
+    }));
+
+    var ok = qMax < 10;
+    document.getElementById('fluidOut').innerHTML =
+      '<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">' +
+      '<div class="stat' + (qMax > 60 ? ' is-bad' : qMax > 20 ? ' is-warn' : ' is-ok') + '">' +
+        '<div class="k">คิวสูงสุด (fluid)</div><div class="v">' + qMax.toFixed(0) +
+        '<span class="u">คน</span></div><div class="d">เวลา ' + Q.fmt.clock(qMaxT) + '</div></div>' +
+      (simMax != null ? '<div class="stat"><div class="k">คิวสูงสุด (จำลอง)</div><div class="v">' +
+        simMax + '<span class="u">คน</span></div><div class="d">มีความสุ่มจริง</div></div>' : '') +
+      '<div class="stat"><div class="k">รอเฉลี่ย (fluid)</div><div class="v">' +
+        meanWait.toFixed(1) + '<span class="u">น.</span></div></div>' +
+      (simMean != null ? '<div class="stat"><div class="k">รอเฉลี่ย (จำลอง)</div><div class="v">' +
+        simMean.toFixed(1) + '<span class="u">น.</span></div></div>' : '') +
+      '<div class="stat"><div class="k">ค่าโต๊ะส่วนเพิ่ม</div><div class="v">' +
+        Q.fmt.i(Math.max(cPeak - 7, 0) * ((t1 - t0) / 60) * 250) +
+        '<span class="u">บ./วัน</span></div></div>' +
+      '</div>' +
+      '<div class="' + (ok ? 'tip' : 'warnbox') + '" style="margin:14px 0 0">' +
+      (ok ? '<strong>คิวแทบไม่เกิดเลยตลอดวัน</strong> — กำลังเพียงพอทุกช่วง'
+          : '<strong>คิวสูงสุด ' + qMax.toFixed(0) + ' คน</strong> เกิดขึ้นเวลา ' +
+            Q.fmt.clock(qMaxT) + ' หลังจากนั้นต้องใช้เวลาระบายอีกหลายชั่วโมง — ' +
+            'สังเกตว่าคิวยังไม่หมดแม้ความต้องการจะต่ำกว่ากำลังไปนานแล้ว') +
+      '<br><small style="color:var(--ink-soft)">เส้น fluid กับเส้นจำลองควรไปด้วยกัน ' +
+      'ถ้าต่างกันมากแปลว่าความสุ่มมีบทบาทสูง — ซึ่งมักเกิดเมื่อ ρ ใกล้ 1 พอดี</small></div>';
+  }
+  Site.bind(['cp', 't0', 't1', 'showSim'], fluid);
+
+  document.addEventListener('themechange', function () { arrChart(); fluid(); });
+})();
+</script>
+</body>
+</html>

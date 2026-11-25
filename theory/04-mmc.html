@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 4 — M/M/1, M/M/c และสูตร Erlang-C</title>
+<meta name="description" content="กระบวนการเกิด-ตาย, สมการสมดุล, สูตร M/M/1 และ M/M/c, Erlang-B/Erlang-C, service level และผลของการรวมคิว (pooling)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="theory/04-mmc.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">บทที่ 4</p>
+  <h1>M/M/1, M/M/c และ Erlang-C</h1>
+  <p class="lede">
+    แบบจำลองคลาสสิกที่ทุกตำราเริ่ม และเป็นฐานของสูตรที่แม่นกว่าในบทถัดไป
+    จบบทนี้คุณจะคำนวณได้ว่า "เปิด c โต๊ะ แล้วกี่ % ของคนไข้ต้องรอ และรอนานแค่ไหน"
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="birth">1. กระบวนการเกิด–ตาย: เครื่องจักรที่อยู่เบื้องหลัง</h2>
+
+<p>
+  มองระบบคิวเป็น "จำนวนคนในระบบ" ที่กระโดดขึ้นลงทีละหนึ่ง
+  ขึ้นเมื่อมีคนมา (อัตรา λ) ลงเมื่อมีคนเสร็จ (อัตรา μ)
+  นี่คือ <strong>กระบวนการเกิด–ตาย (birth–death process)</strong>
+</p>
+
+<figure>
+  <div id="bdChain"></div>
+  <figcaption>แผนภาพสถานะของ M/M/1 — ลูกศรขวาคืออัตราคนมา ลูกศรซ้ายคืออัตราคนเสร็จ</figcaption>
+</figure>
+
+<p>
+  เมื่อระบบนิ่งแล้ว อัตราที่ข้ามเส้นแบ่งระหว่างสถานะ n กับ n+1 ไปทางขวา
+  ต้องเท่ากับอัตราที่ข้ามกลับมาทางซ้ายพอดี เรียกว่า <strong>สมการสมดุล (balance equation)</strong>
+</p>
+
+<div class="formula">
+  $$\lambda\, p_n \;=\; \mu\, p_{n+1}
+    \qquad\Longrightarrow\qquad
+    p_{n+1} \;=\; \frac{\lambda}{\mu}\, p_n \;=\; \rho\, p_n$$
+</div>
+
+<p>
+  วนซ้ำจาก p₀ จะได้ <span class="katex-nowrap">$p_n = \rho^n p_0$</span>
+  และเพราะผลรวมความน่าจะเป็นต้องเท่ากับ 1
+</p>
+
+<div class="formula">
+  $$\sum_{n=0}^{\infty}\rho^n p_0 = 1
+    \;\Longrightarrow\;
+    \frac{p_0}{1-\rho}=1
+    \;\Longrightarrow\;
+    \boxed{\,p_n = (1-\rho)\rho^n\,}$$
+  <div class="caption">อนุกรมเรขาคณิตลู่เข้าได้ก็ต่อเมื่อ ρ &lt; 1 — นี่คือที่มาของเงื่อนไขเสถียร</div>
+</div>
+
+<h2 id="mm1">2. สูตร M/M/1 ครบชุด</h2>
+
+<div class="formula">
+  $$L=\frac{\rho}{1-\rho}\qquad
+    L_q=\frac{\rho^{2}}{1-\rho}\qquad
+    W=\frac{E[S]}{1-\rho}\qquad
+    W_q=\frac{\rho\,E[S]}{1-\rho}$$
+</div>
+
+<p>
+  ทั้งสี่สูตรเชื่อมกันด้วยกฎของลิตเติลทั้งหมด:
+  <span class="katex-nowrap">$L=\lambda W$</span>,
+  <span class="katex-nowrap">$L_q=\lambda W_q$</span> และ
+  <span class="katex-nowrap">$W = W_q + E[S]$</span>
+  ถ้าจำได้สูตรเดียว ที่เหลือสร้างเองได้
+</p>
+
+<div class="example">
+  <header>ตัวอย่างที่ 4.1 — โต๊ะทวนสอบผลโต๊ะเดียว</header>
+  <div class="body">
+    <div class="calc">E[S] = 2.0 นาที   μ = 0.5 ราย/นาที
+λ    = 0.40 ราย/นาที
+ρ    = 0.40 × 2.0 = 0.80
+
+Wq = ρE[S]/(1−ρ) = 0.80 × 2.0 / 0.20 = <span class="hl">8.0 นาที</span>
+W  = Wq + E[S]   = 8.0 + 2.0        = 10.0 นาที
+Lq = λWq         = 0.40 × 8.0       = 3.2 คน
+L  = λW          = 0.40 × 10.0      = 4.0 คน
+
+ตรวจ: L − Lq = 4.0 − 3.2 = 0.8 = ρ ✓ (คนกำลังรับบริการโดยเฉลี่ย)</div>
+    <p style="margin-bottom:0">
+      ถ้า λ เพิ่มแค่ 10% เป็น 0.44 → ρ = 0.88 → Wq = 14.7 นาที
+      <strong>งานเพิ่ม 10% แต่เวลารอเพิ่ม 84%</strong>
+      นี่คือความไม่เป็นเชิงเส้นที่ทำให้การวางแผนด้วยค่าเฉลี่ยล้มเหลว
+    </p>
+  </div>
+</div>
+
+<h2 id="mmc">3. M/M/c — หลายโต๊ะ คิวเดียว</h2>
+
+<p>
+  เปลี่ยนจากโต๊ะเดียวเป็น c โต๊ะที่ <strong>แชร์คิวเดียวกัน</strong>
+  อัตราการระบายงานจะเพิ่มขึ้นตามจำนวนคนที่กำลังทำงาน:
+  <span class="katex-nowrap">$\mu_n = \min(n,c)\cdot\mu$</span>
+</p>
+
+<div class="formula">
+  $$p_n=\begin{cases}
+    \dfrac{a^{n}}{n!}\,p_0 & n < c\\[8pt]
+    \dfrac{a^{n}}{c!\,c^{\,n-c}}\,p_0 & n \ge c
+  \end{cases}
+  \qquad a=\lambda E[S]$$
+</div>
+
+<h3>Erlang-C — ความน่าจะเป็นที่ต้องรอ</h3>
+
+<div class="formula">
+  $$C(c,a)\;=\;P(\text{ต้องรอ})\;=\;
+  \frac{\dfrac{a^{c}}{c!}\cdot\dfrac{1}{1-\rho}}
+       {\displaystyle\sum_{k=0}^{c-1}\frac{a^{k}}{k!}+\frac{a^{c}}{c!}\cdot\frac{1}{1-\rho}}$$
+</div>
+
+<div class="formula">
+  $$\boxed{\;W_q \;=\; \frac{C(c,a)}{c\mu-\lambda}\;}$$
+  <div class="caption">
+    ตีความง่าย ๆ: ต้องรอด้วยโอกาส C เท่านั้น และถ้าต้องรอ จะรอเฉลี่ย
+    <span class="katex-nowrap">$1/(c\mu-\lambda)$</span> นาที
+  </div>
+</div>
+
+<div class="warnbox">
+  <p class="boxtitle">ปัญหาเชิงตัวเลข และวิธีที่โค้ดจริงแก้</p>
+  <p>
+    สูตรข้างบนมี <span class="katex-nowrap">$a^{c}/c!$</span> ซึ่งเมื่อ c = 20
+    (เครื่องเคมีคลินิกในกรณีศึกษา) ตัวเศษและตัวส่วนจะใหญ่เกินกว่าที่คอมพิวเตอร์จะเก็บได้
+    FlowLens จึงใช้ <strong>สูตรเวียนของ Erlang-B</strong> แทน
+    ซึ่งไม่มีการคูณแฟกทอเรียลโดยตรง
+  </p>
+  <div class="formula tight" style="background:var(--bg-code)">
+    $$B(0,a)=1,\qquad
+      \frac{1}{B(i,a)} = 1 + \frac{i}{a}\cdot\frac{1}{B(i-1,a)},\qquad
+      C(c,a)=\frac{B(c,a)}{1-\rho\,[1-B(c,a)]}$$
+  </div>
+  <pre style="margin-bottom:0"><code>def erlang_c(c, a):
+    rho = a / c
+    if rho &gt;= 1: return 1.0
+    inv_b = 1.0
+    for i in range(1, c + 1):
+        inv_b = 1.0 + inv_b * i / a      # สูตรเวียน ไม่ล้น
+    b = 1.0 / inv_b
+    return b / (1.0 - rho * (1.0 - b))</code></pre>
+  <p style="margin:.8em 0 0"><small>— <code>flowlens/core/analysis/queueing.py</code>
+    ฟังก์ชันเดียวกันนี้ถูกพอร์ตมาเป็น <code>Q.erlangC()</code> ในเว็บนี้</small></p>
+</div>
+
+<h2 id="service">4. Service level — "รอไม่เกิน t นาที กี่ %"</h2>
+
+<p>
+  ใน M/M/c เวลารอมีหางเป็น exponential พอดี ซึ่งทำให้คำนวณเปอร์เซ็นไทล์ได้ตรง ๆ
+</p>
+
+<div class="formula">
+  $$P(W_q > t)\;=\;C(c,a)\,e^{-(c\mu-\lambda)t}
+  \qquad\Longrightarrow\qquad
+  P(W_q \le t)\;=\;1-C(c,a)\,e^{-(c\mu-\lambda)t}$$
+</div>
+
+<p>
+  นี่คือสูตรที่ศูนย์บริการทั่วโลกใช้ตั้งเป้าแบบ "80/20" (รับสาย 80% ภายใน 20 วินาที)
+  และเป็นฐานของฟังก์ชัน <code>wq_percentile()</code> ใน FlowLens
+  ที่ใช้ตอบว่า "เปิดกี่โต๊ะ ผู้ป่วย 90% จึงรอไม่เกิน 15 นาที"
+</p>
+
+<div class="lab">
+  <header>
+    <span class="ttl">ห้องทดลอง 4.1 — Erlang-C แบบเล่นได้</span>
+    <span class="hint">ดู P(ต้องรอ), การกระจายจำนวนคนในระบบ และ service level พร้อมกัน</span>
+  </header>
+  <div class="body">
+    <div class="lab-split left">
+      <div>
+        <div class="ctrl">
+          <label for="l4"><span>λ ราย/นาที</span><span class="val" id="l4V"></span></label>
+          <input type="range" id="l4" min="0.1" max="3.5" step="0.01" value="1.73">
+        </div>
+        <div class="ctrl">
+          <label for="s4"><span>E[S] นาที/ราย</span><span class="val" id="s4V"></span></label>
+          <input type="range" id="s4" min="0.5" max="16" step="0.1" value="4.2">
+        </div>
+        <div class="ctrl">
+          <label for="c4"><span>จำนวนโต๊ะ c</span><span class="val" id="c4V"></span></label>
+          <input type="range" id="c4" min="1" max="26" step="1" value="8">
+        </div>
+        <div class="ctrl">
+          <label for="tg4"><span>เป้าเวลารอ t</span><span class="val" id="tg4V"></span></label>
+          <input type="range" id="tg4" min="1" max="40" step="1" value="15">
+        </div>
+        <div class="btnrow" style="margin:14px 0 0">
+          <button class="btn" data-preset="phleb">จุดเจาะเลือด</button>
+          <button class="btn" data-preset="chem">เครื่องเคมี</button>
+          <button class="btn" data-preset="verify">ทวนสอบผล</button>
+        </div>
+      </div>
+      <div>
+        <div class="stats" style="margin-top:0;grid-template-columns:repeat(auto-fit,minmax(112px,1fr))">
+          <div class="stat" id="k_rho"><div class="k">ρ</div><div class="v">—</div></div>
+          <div class="stat" id="k_c"><div class="k">P(ต้องรอ)</div><div class="v">—</div></div>
+          <div class="stat" id="k_wq"><div class="k">Wq เฉลี่ย</div><div class="v">—</div></div>
+          <div class="stat" id="k_sl"><div class="k">รอ ≤ t</div><div class="v">—</div></div>
+          <div class="stat" id="k_lq"><div class="k">Lq</div><div class="v">—</div></div>
+        </div>
+        <div id="chart4a"></div>
+        <p style="font-size:.85rem;color:var(--ink-faint);margin:6px 0 16px">
+          การกระจายจำนวนคนในระบบ p(n) — แท่งสีเข้มคือสถานะที่ <strong>ทุกโต๊ะไม่ว่าง</strong>
+          ผลรวมของแท่งเข้มทั้งหมดคือค่า Erlang-C พอดี
+        </p>
+        <div id="chart4b"></div>
+        <p style="font-size:.85rem;color:var(--ink-faint);margin:6px 0 0">
+          เส้นโค้ง service level — แกนนอนคือเวลารอ t แกนตั้งคือสัดส่วนคนที่รอไม่เกิน t
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="pooling">5. การรวมคิว — ของฟรีที่มีอยู่จริง</h2>
+
+<p>
+  นี่คือผลลัพธ์ที่ทรงพลังที่สุดของ M/M/c และเป็นข้อเสนอที่<strong>ไม่ต้องใช้เงิน</strong>
+  เอาคิวที่แยกกันมารวมเป็นแถวเดียวที่ป้อนทุกโต๊ะ
+</p>
+
+<p>
+  จำตัวเลขจาก <a href="03-variability.html">บทที่ 3</a> ได้ไหม —
+  8 ห้องแยกคิว แต่ละห้อง ρ = 0.909 รอ 25.2 นาที
+  ถ้าเอามารวมเป็นแถวเดียว ρ ยังเท่าเดิมทุกประการ แต่…
+</p>
+
+<figure>
+  <div id="poolChart"></div>
+  <figcaption>เวลารอเมื่อ ρ คงที่ที่ 0.909 แต่เปลี่ยนจำนวนโต๊ะที่แชร์คิวเดียวกัน
+    — เพิ่มคนไข้ตามสัดส่วนจำนวนโต๊ะเสมอ</figcaption>
+</figure>
+<div id="poolLegend"></div>
+
+<div class="example">
+  <header>ตัวอย่างที่ 4.2 — รวม 8 แถวเป็นแถวเดียว</header>
+  <div class="body">
+    <div class="calc"><span class="cm">แบบ ก: 8 ห้อง แยกคิวกัน (8 × M/M/1)</span>
+λ ต่อห้อง = 0.2165   E[S] = 4.2   ρ = 0.909
+Wq = ρE[S]/(1−ρ) = 0.909 × 4.2 / 0.0909 = <span class="hl">42.0 นาที</span>
+
+<span class="cm">แบบ ข: 8 โต๊ะ คิวเดียว (M/M/8)</span>
+λ รวม = 1.732   a = 7.274   ρ = 0.909
+C(8, 7.274) = 0.726
+Wq = C/(cμ−λ) = 0.726 / (1.905 − 1.732) = <span class="hl">4.20 นาที</span>
+
+<span class="cm">ลดลง 90% โดยไม่เพิ่มคนแม้แต่คนเดียว</span>
+
+<span class="cm">// ถ้าใช้ cs² ของจริง (0.20) แทน exponential จะได้</span>
+Wq(G/G/1) = 25.2 นาที   →   Wq(G/G/8) = <span class="hl">2.5 นาที</span></div>
+    <p style="margin-bottom:0">
+      เหตุผลเชิงกายภาพ: ในแบบ ก อาจมีห้องหนึ่งว่างอยู่ ขณะที่อีกห้องมีคนต่อแถวสามคน
+      — เวลาว่างนั้น<strong>ใช้ไม่ได้</strong> ส่วนแบบ ข โต๊ะที่ว่างจะดึงคนถัดไปจากแถวกลางทันที
+      ไม่มีเวลาว่างที่สูญเปล่าแม้แต่วินาทีเดียวตราบใดที่ยังมีคนรอ
+    </p>
+  </div>
+</div>
+
+<div class="tip">
+  <p class="boxtitle">ใช้ในงานจริงอย่างไร</p>
+  <ul style="margin-bottom:0">
+    <li><strong>แถวเดียวป้อนหลายช่อง</strong> แทนการให้ต่อแถวหน้าโต๊ะใครโต๊ะมัน (เหมือนธนาคาร/สนามบิน)</li>
+    <li><strong>รวมเครื่องวิเคราะห์เป็นพูลเดียว</strong> แทนการล็อกเครื่องไว้กับแผนกใดแผนกหนึ่ง</li>
+    <li><strong>ระวัง:</strong> การรวมคิวใช้ไม่ได้เมื่อแต่ละโต๊ะทำงานคนละชนิดจริง ๆ
+      (เช่น เครื่องเคมีกับเครื่องโลหิตวิทยา) หรือเมื่อการเดินไปโต๊ะที่ว่างช้ากว่าที่ประหยัดได้</li>
+    <li><strong>ข้อแลกเปลี่ยน:</strong> คิวรวมทำให้คนที่มาถึงเห็นแถวยาวน่ากลัวกว่า
+      แม้จะรอสั้นกว่า — ต้องสื่อสารด้วยป้ายบอกเวลารอโดยประมาณ</li>
+  </ul>
+</div>
+
+<h2 id="limits">6. M/M/c เชื่อถือได้แค่ไหน</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>สมมติฐานของ M/M/c</th><th>ความจริงในกรณีศึกษา</th><th>ผลต่อคำตอบ</th></tr></thead>
+  <tbody>
+    <tr><th>เวลาบริการเป็น exponential (cs² = 1)</th>
+      <td>lognormal, cs² = 0.06–0.25</td>
+      <td class="num"><span class="pill bad">สูงเกินจริงมาก</span></td></tr>
+    <tr><th>คนมาแบบ Poisson (ca² = 1)</th>
+      <td>มาเป็นกลุ่มตอนเช้า ca² อาจ &gt; 1</td>
+      <td class="num"><span class="pill warn">ต่ำกว่าจริงได้</span></td></tr>
+    <tr><th>λ คงที่ตลอดเวลา</th>
+      <td>λ เปลี่ยน 20 เท่าระหว่างวัน</td>
+      <td class="num"><span class="pill bad">ต้องแบ่งช่วง</span></td></tr>
+    <tr><th>c คงที่</th><td>เปลี่ยนตามกะ 4→9 โต๊ะ</td>
+      <td class="num"><span class="pill warn">ต้องแบ่งช่วง</span></td></tr>
+    <tr><th>คิวไม่จำกัด ไม่มีใครเดินออก</th>
+      <td>จริงพอสมควรสำหรับผู้ป่วยนอก</td>
+      <td class="num"><span class="pill ok">ใช้ได้</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  สรุปคือ M/M/c ใช้<strong>คิดเร็ว ๆ ในหัว</strong>ได้ดี และเป็นฐานของการคำนวณเปอร์เซ็นไทล์
+  แต่สำหรับตัวเลขที่จะเอาไปเสนอผู้บริหาร FlowLens ใช้
+  <strong>G/G/c ผ่านสูตร Sakasegawa</strong> ที่รับ ca² และ cs² จริงเข้าไปด้วย —
+  ซึ่งคือหัวข้อของบทถัดไป
+</p>
+
+<div class="takeaway">
+  <h4>สรุปบทที่ 4</h4>
+  <ul>
+    <li>M/M/1: <strong>Wq = ρE[S]/(1−ρ)</strong> — ง่ายที่สุด และแสดงการระเบิดที่ ρ→1 ชัดที่สุด</li>
+    <li>M/M/c: <strong>Wq = C(c,a)/(cμ−λ)</strong> โดย C คือ Erlang-C = โอกาสที่ต้องรอ</li>
+    <li>คำนวณ Erlang-C ด้วย<strong>สูตรเวียน</strong> เสมอ ไม่งั้นเลขล้นเมื่อ c &gt; 15</li>
+    <li>หางของเวลารอเป็น exponential → คำนวณ "รอไม่เกิน t นาที กี่ %" ได้ตรง ๆ</li>
+    <li><strong>การรวมคิวลดเวลารอได้มหาศาลโดยไม่ต้องเพิ่มคน</strong> — 8 แถวแยก 42 นาที → แถวเดียว 4.2 นาที</li>
+    <li>M/M/c ประเมินเวลารอ<strong>สูงเกินจริง</strong>เมื่อเวลาบริการสม่ำเสมอกว่า exponential ซึ่งเป็นกรณีปกติของงานบริการ</li>
+  </ul>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/flowlens-data.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  function sel(t, a, x) {
+    var n = document.createElementNS(NS, t);
+    for (var k in a) if (a[k] != null) n.setAttribute(k, a[k]);
+    if (x != null) n.textContent = x;
+    return n;
+  }
+
+  /* ---------- แผนภาพสถานะ ---------- */
+  function chain() {
+    var svg = sel('svg', { viewBox: '0 0 700 130', class: 'chart',
+      role: 'img', 'aria-label': 'แผนภาพสถานะกระบวนการเกิด-ตาย' });
+    var defs = sel('defs');
+    var m = sel('marker', { id: 'ar', viewBox: '0 0 10 10', refX: 9, refY: 5,
+      markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
+    m.appendChild(sel('path', { d: 'M 0 1 L 9 5 L 0 9 z', fill: 'var(--ink-faint)' }));
+    defs.appendChild(m); svg.appendChild(defs);
+
+    var labels = ['0', '1', '2', '3', 'n', 'n+1'];
+    var xs = [60, 170, 280, 390, 520, 640];
+    xs.forEach(function (x, i) {
+      svg.appendChild(sel('circle', { cx: x, cy: 60, r: 24, fill: 'var(--bg-sunken)',
+        stroke: 'var(--line)', 'stroke-width': 1.5 }));
+      svg.appendChild(sel('text', { x: x, y: 66, 'text-anchor': 'middle',
+        'font-size': 15, fill: 'var(--ink)', 'font-family': 'var(--mono)' }, labels[i]));
+      if (i < xs.length - 1) {
+        var x2 = xs[i + 1];
+        var gap = (i === 3);
+        if (gap) {
+          svg.appendChild(sel('text', { x: (x + x2) / 2, y: 66, 'text-anchor': 'middle',
+            'font-size': 18, fill: 'var(--ink-faint)' }, '· · ·'));
+          return;
+        }
+        svg.appendChild(sel('path', { d: 'M ' + (x + 26) + ' 48 Q ' + ((x + x2) / 2) + ' 18, ' + (x2 - 26) + ' 48',
+          fill: 'none', stroke: 'var(--s1)', 'stroke-width': 1.6, 'marker-end': 'url(#ar)' }));
+        svg.appendChild(sel('text', { x: (x + x2) / 2, y: 24, 'text-anchor': 'middle',
+          'font-size': 13, fill: 'var(--s1)' }, 'λ'));
+        svg.appendChild(sel('path', { d: 'M ' + (x2 - 26) + ' 72 Q ' + ((x + x2) / 2) + ' 102, ' + (x + 26) + ' 72',
+          fill: 'none', stroke: 'var(--s2)', 'stroke-width': 1.6, 'marker-end': 'url(#ar)' }));
+        svg.appendChild(sel('text', { x: (x + x2) / 2, y: 112, 'text-anchor': 'middle',
+          'font-size': 13, fill: 'var(--s2)' }, 'μ'));
+      }
+    });
+    Chart.mount('bdChain', svg);
+  }
+  chain();
+
+  /* ---------- Erlang-C lab ---------- */
+  var presets = {
+    phleb: { l: 1.73, s: 4.2, c: 8, t: 15 },
+    chem: { l: 1.07, s: 15.0, c: 20, t: 15 },
+    verify: { l: 1.73, s: 2.0, c: 4, t: 10 },
+  };
+  document.querySelectorAll('[data-preset]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var p = presets[b.dataset.preset];
+      document.getElementById('l4').value = p.l;
+      document.getElementById('s4').value = p.s;
+      document.getElementById('c4').value = p.c;
+      document.getElementById('tg4').value = p.t;
+      lab4();
+    });
+  });
+
+  function lab4() {
+    var lam = Site.v('l4'), es = Site.v('s4'), c = Site.v('c4'), tg = Site.v('tg4');
+    Site.show('l4', lam.toFixed(2));
+    Site.show('s4', es.toFixed(1));
+    Site.show('c4', c + ' โต๊ะ');
+    Site.show('tg4', tg + ' นาที');
+
+    var a = lam * es, r = a / c;
+    var C = Q.erlangC(c, a);
+    var wq = Q.wqMMc(lam, es, c);
+    var sl = r >= 1 ? 0 : Q.serviceLevel(lam, es, c, tg);
+    var lq = Number.isFinite(wq) ? lam * wq : Infinity;
+
+    function put(id, v, cls) {
+      var e = document.getElementById(id);
+      e.className = 'stat' + (cls ? ' ' + cls : '');
+      e.querySelector('.v').innerHTML = v;
+    }
+    put('k_rho', r.toFixed(3), r >= 1 ? 'is-bad' : r > .85 ? 'is-warn' : 'is-ok');
+    put('k_c', (C * 100).toFixed(0) + '%');
+    put('k_wq', Number.isFinite(wq) ? wq.toFixed(1) + '<span class="u">น.</span>' : '∞',
+        !Number.isFinite(wq) ? 'is-bad' : '');
+    put('k_sl', (sl * 100).toFixed(0) + '%', sl >= .9 ? 'is-ok' : sl >= .8 ? 'is-warn' : 'is-bad');
+    put('k_lq', Number.isFinite(lq) ? lq.toFixed(1) : '∞');
+
+    /* p(n) */
+    var nMax = Math.min(Math.max(c + 18, 22), 44);
+    var vals = [], cols = [], labs = [];
+    for (var n = 0; n <= nMax; n++) {
+      var p = r >= 1 ? 0 : Q.pnMMc(lam, es, c, n);
+      vals.push(Number.isFinite(p) ? p : 0);
+      cols.push(n >= c ? 'var(--s2)' : 'var(--s1)');
+      labs.push(n % 4 === 0 ? String(n) : '');
+    }
+    Chart.mount('chart4a', Chart.barChart({
+      width: 600, height: 190, labels: labs,
+      series: [{ values: vals, colors: cols }],
+      ylabel: 'p(n)', xlabel: 'จำนวนคนในระบบ n',
+      yfmt: function (v) { return v.toFixed(2); },
+      margin: { t: 10, r: 14, b: 40, l: 48 },
+      label: 'การกระจายจำนวนคนในระบบ',
+    }));
+
+    /* service level curve */
+    var pts = [];
+    for (var t = 0; t <= 45; t += 0.5) {
+      pts.push([t, r >= 1 ? 0 : Q.serviceLevel(lam, es, c, t) * 100]);
+    }
+    Chart.mount('chart4b', Chart.lineChart({
+      width: 600, height: 200, x0: 0, x1: 45, y0: 0, y1: 100,
+      xlabel: 'รอไม่เกิน t นาที', ylabel: '% ของผู้ป่วย',
+      series: [{ points: pts, color: 'var(--s3)', width: 2.4, fill: true }],
+      rules: [{ x: tg, color: 'var(--ink-faint)', label: 't = ' + tg },
+              { y: 90, color: 'var(--warn)', label: 'เป้า 90%' }],
+      margin: { t: 12, r: 14, b: 40, l: 48 },
+      label: 'เส้นโค้ง service level',
+    }));
+  }
+  Site.bind(['l4', 's4', 'c4', 'tg4'], lab4);
+
+  /* ---------- pooling ---------- */
+  function pooling() {
+    var es = 4.2, rho = 0.909, cs2 = 0.20;
+    var mmc = [], ggc = [];
+    for (var c = 1; c <= 20; c++) {
+      var lam = (rho * c) / es;
+      mmc.push([c, Math.min(Q.wqMMc(lam, es, c), 60)]);
+      ggc.push([c, Math.min(Q.wqGGc(lam, es, c, 1, cs2), 60)]);
+    }
+    Chart.mount('poolChart', Chart.lineChart({
+      width: 700, height: 270, x0: 1, x1: 20, y0: 0, y1: 48, nx: 10,
+      xlabel: 'จำนวนโต๊ะที่แชร์คิวเดียวกัน (c)', ylabel: 'Wq (นาที)',
+      xfmt: function (v) { return String(Math.round(v)); },
+      series: [
+        { points: mmc, color: 'var(--s2)', width: 2.2, dots: 2.6 },
+        { points: ggc, color: 'var(--s1)', width: 2.6, dots: 2.6 },
+      ],
+      rules: [{ x: 8, color: 'var(--ink-faint)', label: '8 โต๊ะ' }],
+      label: 'ผลของการรวมคิว',
+    }));
+    Chart.mount('poolLegend', Chart.legend([
+      { name: 'M/M/c (cs² = 1)', color: 'var(--s2)' },
+      { name: 'G/G/c (cs² = 0.20 ของจริง)', color: 'var(--s1)' },
+    ]));
+  }
+  pooling();
+
+  document.addEventListener('themechange', function () { chain(); lab4(); pooling(); });
+})();
+</script>
+</body>
+</html>
