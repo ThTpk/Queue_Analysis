@@ -1,0 +1,5 @@
+# ผลลัพธ์ของเครื่องมือ simulab — สร้างใหม่ได้จากซอร์สใน labs/<lab>/
+labs/*/render/
+labs/*/dist/
+labs/*/shots/
+labs/*/cover.jpg
