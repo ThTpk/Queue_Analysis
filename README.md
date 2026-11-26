@@ -1,5 +1,7 @@
 # ทฤษฎีคิวเพื่อการหาคอขวด — กรณีศึกษา FlowLens
 
+**เปิดเว็บ → <https://thtpk.github.io/Queue_Analysis/>**
+
 เว็บไซต์เรียนรู้ภาษาไทยว่าด้วย **ทฤษฎีคิว (Queueing Theory)** ที่ใช้จริง
 ในการวิเคราะห์หาคอขวดของระบบบริการ โดยเดินตามกรณีศึกษา **FlowLens** —
 โปรแกรมวิเคราะห์คอขวดงานตรวจเลือดโรงพยาบาล
@@ -126,8 +128,8 @@ node "$env:USERPROFILE\.claude\skills\simulab\tools\build.mjs" labs\lab-queue
 
 ## ดูเว็บ
 
-เผยแพร่ด้วย GitHub Pages — เปิด **Settings → Pages → Source: Deploy from a branch →
-Branch: `main` / `(root)`**
+เผยแพร่ด้วย GitHub Pages อยู่ที่ <https://thtpk.github.io/Queue_Analysis/>
+(ตั้งค่าไว้ที่ Settings → Pages → Branch `main` / `(root)` ทุกครั้งที่ push จะอัปเดตเองใน 1–2 นาที)
 
 ดูในเครื่องตัวเอง:
 
