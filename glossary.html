@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>อภิธานศัพท์ — ทฤษฎีคิวและการหาคอขวด</title>
+<meta name="description" content="ความหมายของ λ μ ρ Wq Lq cv² TAT p90 Erlang-C Sakasegawa Kingman และศัพท์อื่นที่ใช้ในเว็บนี้ อธิบายด้วยภาษาคน">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="glossary.html" data-base="">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">อภิธานศัพท์</p>
+  <h1>ศัพท์ทุกคำที่เว็บนี้ใช้</h1>
+  <p class="lede">
+    เรียงจากที่เจอบ่อยที่สุด แต่ละคำมีคำอธิบายสั้นหนึ่งบรรทัด แล้วตามด้วยรายละเอียด
+    — ถ้าเจอคำไหนในหน้าอื่นแล้วมีขีดประใต้คำ กดได้เลยจะมีคำอธิบายเด้งขึ้นมา
+  </p>
+</div>
+
+<div class="ctrl" style="max-width:420px">
+  <label for="q"><span>ค้นหาศัพท์</span><span class="val" id="qn"></span></label>
+  <input type="text" id="q" placeholder="พิมพ์คำที่อยากรู้ เช่น ρ หรือ p90 หรือ คอขวด" style="width:100%">
+</div>
+
+<h2 id="g-core">ตัวแปรพื้นฐาน</h2>
+<div id="core"></div>
+
+<h2 id="g-result">ค่าที่เป็นผลลัพธ์</h2>
+<div id="result"></div>
+
+<h2 id="g-formula">สูตรและชื่อคน</h2>
+<div id="formula"></div>
+
+<h2 id="g-concept">แนวคิดและวิธีทำงาน</h2>
+<div id="concept"></div>
+
+<div class="note" id="nores" hidden>
+  <p style="margin-bottom:0">ไม่พบศัพท์ที่ตรงกับที่พิมพ์ — ลองพิมพ์สั้นลง
+    หรือกดล้างช่องค้นหาเพื่อดูทั้งหมด</p>
+</div>
+
+<div class="takeaway">
+  <h4>ถ้ายังงง ให้เริ่มจากสามคำนี้ก่อน</h4>
+  <ol style="margin-bottom:0">
+    <li><strong>λ</strong> — งานเข้ามาเร็วแค่ไหน</li>
+    <li><strong>ρ</strong> — เราใช้กำลังที่มีไปกี่เปอร์เซ็นต์แล้ว</li>
+    <li><strong>คอขวด</strong> — จุดไหนที่จำกัดความเร็วของทั้งระบบ</li>
+  </ol>
+  <p style="margin:.8em 0 0">
+    สามคำนี้ตอบได้ 80% ของคำถามในงานจริง ที่เหลือคือรายละเอียดของการคำนวณ
+    ถ้าอยากเริ่มแบบไม่มีสูตรเลย อ่าน <a href="start.html">หน้าอ่าน 5 นาที</a> ก่อน
+  </p>
+</div>
+
+<nav class="pager"></nav>
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="assets/js/glossary.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+  var GROUP = {
+    core: ['lambda', 'mu', 'es', 'rho', 'cv', 'erlang'],
+    result: ['wq', 'lq', 'tat', 'p90'],
+    formula: ['little', 'erlangc', 'kingman', 'saka', 'kendall', 'mmc', 'ggc', 'poisson', 'pasta'],
+    concept: ['bottleneck', 'toc', 'fluid', 'sipp', 'des'],
+  };
+  function card(g) {
+    return '<div class="term" id="' + g.id + '">' +
+      '<h3>' + g.t + '</h3>' +
+      '<p class="short">' + g.s + '</p>' +
+      '<p>' + g.l + '</p>' +
+      '<p style="margin-top:8px;font-size:.84rem;color:var(--ink-faint)">คำที่ใช้ในหน้าอื่น: ' +
+      g.m.map(function (m) { return '<code>' + m + '</code>'; }).join(' · ') + '</p></div>';
+  }
+  function render(filter) {
+    var f = (filter || '').trim().toLowerCase(), shown = 0;
+    Object.keys(GROUP).forEach(function (k) {
+      var html = '';
+      GROUP[k].forEach(function (id) {
+        var g = GLOSS_BY_ID[id];
+        if (!g) return;
+        var hay = (g.t + ' ' + g.s + ' ' + g.l + ' ' + g.m.join(' ')).toLowerCase();
+        if (f && hay.indexOf(f) < 0) return;
+        html += card(g); shown++;
+      });
+      var host = document.getElementById(k);
+      host.innerHTML = html;
+      var h2 = host.previousElementSibling;
+      if (h2 && h2.tagName === 'H2') h2.hidden = !html;
+    });
+    document.getElementById('nores').hidden = shown > 0;
+    document.getElementById('qn').textContent = f ? shown + ' คำ' : GLOSS.length + ' คำ';
+    if (!f && location.hash) {
+      var el = document.querySelector(location.hash);
+      if (el) el.scrollIntoView({ block: 'center' });
+    }
+  }
+  document.getElementById('q').addEventListener('input', function () { render(this.value); });
+  render('');
+})();
+</script>
+</body>
+</html>
