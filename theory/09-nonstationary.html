@@ -191,6 +191,50 @@
   จะปรากฏเป็นคิวในอีกสักครู่) แต่วิธีที่ตรงที่สุดและไม่ต้องหาข้ออ้าง คือจำลอง
 </p>
 
+<div class="example">
+  <header>PSA พลาดเท่าไร — วัดจากข้อมูลจริงทั้ง 8 ช่วง</header>
+  <div class="body">
+    <p style="margin-top:0">
+      เอา λ, c, ca², cs² ที่วัดได้รายช่วง 30 นาทีของจุดเจาะเลือด
+      ไปใส่ Sakasegawa แล้ววางเทียบกับเวลารอที่วัดได้จริงในช่วงเดียวกัน
+    </p>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>ช่วง</th><th class="num">ρ</th>
+        <th class="num">Wq จาก PSA</th><th class="num">Wq จริง</th><th>อ่านว่า</th></tr></thead>
+      <tbody>
+        <tr class="is-flag"><th>06:30</th><td class="num">2.155</td><td class="num">∞</td>
+          <td class="num">16.9</td><td>ไม่มีสมดุลให้เข้าถึง</td></tr>
+        <tr class="is-flag"><th>07:00</th><td class="num">1.863</td><td class="num">∞</td>
+          <td class="num">49.1</td><td>ยังไม่มี</td></tr>
+        <tr class="is-flag"><th>07:30</th><td class="num">1.037</td><td class="num">∞</td>
+          <td class="num">62.2</td><td>เพิ่งพ้น 1 มาหยก ๆ</td></tr>
+        <tr class="is-flag"><th>08:00</th><td class="num">0.660</td><td class="num">0.31</td>
+          <td class="num">58.7</td><td><strong>ต่ำกว่าจริง 189 เท่า</strong></td></tr>
+        <tr class="is-flag"><th>08:30</th><td class="num">0.387</td><td class="num">0.03</td>
+          <td class="num">45.9</td><td>ต่ำกว่าจริงเกินพันเท่า</td></tr>
+        <tr><th>09:00</th><td class="num">0.247</td><td class="num">0.01</td>
+          <td class="num">29.4</td><td>ยังเป็นคิวค้าง</td></tr>
+        <tr><th>09:30</th><td class="num">0.297</td><td class="num">0.02</td>
+          <td class="num">9.4</td><td>เริ่มคลาย</td></tr>
+        <tr class="is-good"><th>10:30</th><td class="num">0.414</td><td class="num">0.15</td>
+          <td class="num">0.4</td><td>ระบบนิ่งแล้ว — สูตรใช้ได้</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="margin-bottom:0">
+      สังเกตว่า PSA พลาด<strong>สองทิศทาง</strong> ด้วยเหตุเดียวกัน
+      ช่วงต้น ρ ≥ 1 มันตอบ ∞ ซึ่งถูกตามทฤษฎีแต่ใช้ตัดสินใจไม่ได้
+      ช่วง 08:00 เป็นต้นไป ρ ตกลงมาต่ำแล้ว มันจึงตอบว่าแทบไม่มีคิว
+      ทั้งที่คนที่ยืนรออยู่ตอนนั้นมาถึงตั้งแต่ 07:10
+      — สูตรสถานะคงตัวไม่มีความจำ จึงมองคิวค้างไม่เห็นทั้งก้อน
+      ช่วงสุดท้ายที่ระบบนิ่งจริง สูตรกับข้อมูลตรงกันในระดับที่ใช้ตัดสินใจได้
+      <br>วิธีคำนวณพารามิเตอร์ทุกตัวในตารางนี้อยู่ที่
+      <a href="../case/data-to-formula.html">จากไฟล์ข้อมูล ถึงตัวเลขในสูตร</a>
+    </p>
+  </div>
+</div>
+
 <h2 id="sim">5. การจำลองเหตุการณ์ไม่ต่อเนื่อง</h2>
 
 <p>
