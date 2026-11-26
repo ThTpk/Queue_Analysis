@@ -334,6 +334,8 @@ td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numer
   white-space: nowrap; }
 tr.is-flag td, tr.is-flag th { background: var(--bad-soft); }
 tr.is-flag:hover td, tr.is-flag:hover th { background: color-mix(in srgb, var(--bad) 12%, transparent); }
+tr.is-good td, tr.is-good th { background: var(--ok-soft); }
+tr.is-good:hover td, tr.is-good:hover th { background: color-mix(in srgb, var(--ok) 12%, transparent); }
 caption { caption-side: bottom; padding: 9px 13px; font-size: .83rem;
   color: var(--ink-faint); text-align: left; }
 

@@ -26,6 +26,7 @@
 | บทที่ 8 คำนวณกำลังคน | `theory/08-staffing.html` |
 | บทที่ 9 เมื่อสูตรใช้ไม่ได้ (fluid model, การจำลอง) | `theory/09-nonstationary.html` |
 | กรณีศึกษา FlowLens ทีละขั้น | `case/flowlens.html` |
+| **จากไฟล์ข้อมูล ถึงตัวเลขในสูตร** — คอลัมน์ในไฟล์ → λ E[S] cv² c ρ | `case/data-to-formula.html` |
 | ห้องทดลอง — เครื่องคิดเลขคิว | `sim/calculator.html` |
 | ห้องทดลอง — จุดบริการเดี่ยว (เคลื่อนไหว) | `sim/station.html` |
 | ห้องทดลอง — จำลองทั้งระบบ 8 หน่วย | `sim/network.html` |
@@ -65,6 +66,11 @@
 
 สูตรใน `assets/js/queue.js` พอร์ตตรงจาก `flowlens/core/analysis/queueing.py`
 และสูตรคะแนนคอขวดจาก `flowlens/core/analysis/bottleneck.py`
+
+หน้า `case/data-to-formula.html` ไม่ได้อ่าน `answer_key.json` เลย — คำนวณ λ, E[S],
+cv², c, ρ, เส้นทาง และ TAT ขึ้นใหม่จาก `data.xlsx` (58,303 แถว) ตามขั้นตอนเดียวกับ
+`core/data/start_estimate.py` + `core/data/capacity.py` แล้วจึงเทียบกับเฉลยและกับ
+`truth.parquet` เพื่อวัดว่าการประมาณแต่ละขั้นลำเอียงเท่าไร
 
 ## โครงสร้างไฟล์
 

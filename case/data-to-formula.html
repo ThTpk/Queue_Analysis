@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จากไฟล์ข้อมูล ถึงตัวเลขในสูตร</title>
+<meta name="description" content="สะพาน 7 ขั้นจากไฟล์ Excel 58,303 แถว ไปเป็น λ E[S] cv² c ρ ที่ใส่ลงสูตรทฤษฎีคิวได้ พร้อมวัดความแม่นของทุกขั้นเทียบกับเฉลยของชุดข้อมูล">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body data-page="case/data-to-formula.html" data-base="../">
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="topbar"><div class="topbar-in"></div></header>
+
+<div class="shell">
+<aside class="sidebar" aria-label="สารบัญเว็บ"></aside>
+<main id="main">
+
+<div class="page-head">
+  <p class="eyebrow">กรณีศึกษา</p>
+  <h1>จากไฟล์ข้อมูล ถึงตัวเลขในสูตร</h1>
+  <p class="lede">
+    สูตรทุกสูตรในเว็บนี้ขอ λ, E[S], cv², c มาเป็นตัวเลข
+    แต่ไฟล์ที่โรงพยาบาลส่งมาคือ Excel 58,303 แถว 8 คอลัมน์
+    ที่ไม่มีคอลัมน์ไหนชื่ออย่างนั้นเลย — และไม่มีแม้แต่เวลาที่เริ่มให้บริการ
+    หน้านี้คือสะพานระหว่างสองอย่างนั้น ทีละขั้น พร้อมตัวเลขจริงทุกขั้น
+  </p>
+</div>
+
+<div data-toc></div>
+
+<h2 id="overview">สะพาน 7 ขั้น</h2>
+
+<p>
+  ขั้นที่คนมักข้ามคือขั้นที่ 3 กับ 4 แล้วไปหยิบ E[S] จากเอกสารขั้นตอนปฏิบัติงาน
+  หรือหยิบ c จากตารางเวร ผลที่ได้คือสูตรที่ถูก แต่ตัวเลขที่ป้อนเข้าไปไม่ใช่ของจริง
+  กรณีนี้เป็นตัวอย่างชัด: ตารางเวรบอก 11 โต๊ะ ข้อมูลบอก 7 โต๊ะ
+  และความต่างนั้นคือคำตอบทั้งหมดของเคส
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>แต่ละขั้นได้อะไรเพิ่ม และถ้าทำผิดจะเกิดอะไร</caption>
+  <thead><tr><th>ขั้น</th><th>สิ่งที่ทำ</th><th>ได้</th><th>ถ้าพลาด</th></tr></thead>
+  <tbody>
+    <tr><th class="num">1</th><td>อ่านไฟล์ดิบ</td><td>58,303 แถว · 8 คอลัมน์</td>
+      <td>ปี พ.ศ. แปลงผิด → เวลาเพี้ยน 543 ปี</td></tr>
+    <tr><th class="num">2</th><td>จับคู่คอลัมน์กับชื่อมาตรฐาน</td><td><code>case_id, unit, arrive, end, server</code></td>
+      <td>งานหายจากสมดุลการไหล</td></tr>
+    <tr><th class="num">3</th><td>คำนวณคอลัมน์ที่ต่อยอดได้</td><td>เวลารอ เวลาบริการ ลำดับในเส้นทาง</td>
+      <td>แยกเวลารอกับเวลาบริการไม่ออก</td></tr>
+    <tr><th class="num">4</th><td>ประมาณเวลาเริ่มให้บริการ</td><td>คอลัมน์ <code>start</code> ที่ไฟล์ไม่มี</td>
+      <td>E[S] เพี้ยน → ρ เพี้ยนตามทั้งกระดาน</td></tr>
+    <tr><th class="num">5</th><td>นับโต๊ะที่เปิดจริงรายช่วง</td><td>c ของจริง (ไม่ใช่ของตารางเวร)</td>
+      <td>พลาดคอขวดทั้งตัว</td></tr>
+    <tr><th class="num">6</th><td>สรุปเป็นพารามิเตอร์รายช่วง 30 นาที</td><td>λ, E[S], μ, cs², ca², ρ</td>
+      <td>เฉลี่ยทั้งวันกลบช่วงพีค</td></tr>
+    <tr><th class="num">7</th><td>ใส่ลงสูตร แล้วเทียบกับเวลารอที่วัดได้</td><td>คำตอบ + ขอบเขตที่สูตรใช้ไม่ได้</td>
+      <td>เชื่อสูตรในที่ที่สูตรไม่ควรถูกเชื่อ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="raw">1. ไฟล์ดิบมีอะไร และไม่มีอะไร</h2>
+
+<p>
+  ไฟล์เดียวชื่อ <code>data.xlsx</code> ชีต <code>events</code>
+  หนึ่งแถวคือ "ผู้ป่วยหนึ่งรายผ่านหนึ่งหน่วยหนึ่งครั้ง"
+  นี่คือสี่แถวแรกจริง ๆ ที่ไม่ได้แก้อะไรเลย
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>ต้นฉบับจาก <code>samples/demo_basic/data.xlsx</code></caption>
+  <thead><tr><th>VN</th><th>station</th><th>t_queue</th><th>t_finish</th>
+    <th>desk_no</th><th>urgent_flag</th><th>result_flag</th><th>test_code</th></tr></thead>
+  <tbody>
+    <tr><td><code>SIM-260105-00000008</code></td><td>REG</td><td>05/01/2569 06:11:23</td>
+      <td>05/01/2569 06:31:29</td><td>RE9</td><td class="num">0</td><td>ปกติ</td><td>FBS</td></tr>
+    <tr><td><code>SIM-260105-00000003</code></td><td>REG</td><td>05/01/2569 06:06:03</td>
+      <td>05/01/2569 06:31:50</td><td>RE4</td><td class="num">0</td><td>ปกติ</td><td>LFT</td></tr>
+    <tr><td><code>SIM-260105-00000002</code></td><td>REG</td><td>05/01/2569 06:05:46</td>
+      <td>05/01/2569 06:32:20</td><td>RE3</td><td class="num">0</td><td>ปกติ</td><td>FBS</td></tr>
+    <tr><td><code>SIM-260105-00000001</code></td><td>REG</td><td>05/01/2569 06:05:36</td>
+      <td>05/01/2569 06:32:28</td><td>RE2</td><td class="num">0</td><td>ปกติ</td><td>LFT</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  สังเกตสามอย่างจากสี่แถวนี้ ซึ่งเป็นสามอย่างที่กำหนดงานทั้งหมดที่เหลือ
+</p>
+
+<div class="symbols">
+  <div><span class="sym">2569</span><span><strong>ปีเป็น พ.ศ.</strong> —
+    ทุกแถวในไฟล์นี้ (58,303 แถว) เป็น พ.ศ. ต้องลบ 543 ก่อนแปลงเป็นเวลา
+    ถ้าปล่อยผ่าน ไลบรารีจะอ่านเป็น ค.ศ. 2569 และทุกอย่างหลังจากนั้นผิดหมด</span></div>
+  <div><span class="sym">ไม่มี t_start</span><span><strong>ไม่มีเวลาที่เริ่มให้บริการ</strong> —
+    มีแต่ "เวลาเข้าคิว" กับ "เวลาเสร็จ" ซึ่งเป็นเรื่องปกติของระบบ HIS
+    นี่คือค่าที่ต้องประมาณในขั้นที่ 4 และเป็นขั้นที่ความผิดพลาดแพงที่สุด</span></div>
+  <div><span class="sym">desk_no</span><span><strong>มีเลขโต๊ะ</strong> —
+    คอลัมน์นี้คือสิ่งที่ทำให้ทั้งการประมาณเวลาเริ่ม และการนับโต๊ะที่เปิดจริง
+    ทำได้อย่างแม่นยำ ถ้าไฟล์ไม่มีคอลัมน์นี้ คุณภาพของทุกตัวเลขจะลดลงทันที</span></div>
+</div>
+
+<p>
+  ขนาดของชุดข้อมูล: 58,303 แถว · 8,329 ราย · 20 วันทำการ (5–30 ม.ค. 2026)
+  · ไม่มีแถวซ้ำ · ไม่มีแถวที่เวลาเสร็จมาก่อนเวลาเข้าคิว
+  เฉลี่ยคนไข้หนึ่งรายผ่าน 7 หน่วย (58,303 ÷ 8,329 = 7.0)
+</p>
+
+<h2 id="map">2. จับคู่คอลัมน์ — ชื่อของโรงพยาบาล กับ ชื่อที่โค้ดใช้</h2>
+
+<p>
+  โรงพยาบาลแต่ละแห่งตั้งชื่อคอลัมน์ไม่เหมือนกัน
+  วิธีแก้คือไม่แก้ชื่อในไฟล์ แต่เขียนตารางแปลงไว้ใน config แล้วให้โปรแกรมอ่านตามนั้น
+  — ไฟล์ดิบยังเป็นต้นฉบับที่ตรวจสอบย้อนได้เสมอ
+</p>
+
+<div class="example">
+  <header>ส่วน <code>data_mapping</code> ของ <code>config.yaml</code> — คัดมาทั้งบล็อก</header>
+  <div class="body">
+    <div class="calc">
+data_mapping:
+  case_id: VN              <span class="cm">// รหัสที่ใช้ร้อยแถวของคนเดียวกันเข้าด้วยกัน</span>
+  unit: station            <span class="cm">// ชื่อหน่วยบริการ ต้องตรงกับ id ใน units</span>
+  arrive: t_queue          <span class="cm">// เวลาที่เข้าคิวหน่วยนั้น</span>
+  end: t_finish            <span class="cm">// เวลาที่ออกจากหน่วยนั้น</span>
+  server: desk_no          <span class="cm">// เลขโต๊ะ/เครื่อง — ไม่บังคับ แต่มีแล้วดีขึ้นมาก</span>
+  priority: urgent_flag
+  outcome: result_flag
+  test_code: test_code
+  datetime_format: '%d/%m/%Y %H:%M:%S'
+  buddhist_year: true      <span class="cm">// ← บรรทัดนี้คือตัวลบ 543</span></div>
+    <p>
+      ชื่อฝั่งซ้ายคือชื่อที่โค้ดทุกโมดูลใช้ ชื่อฝั่งขวาคือชื่อในไฟล์
+      ย้ายโรงพยาบาลก็แก้แค่ฝั่งขวา ไม่ต้องแตะสูตรเลย
+    </p>
+    <p>
+      จุดสำคัญ: <strong>ไม่มีบรรทัด <code>start:</code></strong>
+      เพราะไฟล์ไม่มีค่านั้น นั่นคือสาเหตุที่ขั้นที่ 4 ต้องมีอยู่
+    </p>
+  </div>
+</div>
+
+<h2 id="derived">3. คอลัมน์ที่คำนวณได้ — และทุกตัวต้องรอ start</h2>
+
+<p>
+  เมื่อมีชื่อคอลัมน์มาตรฐานแล้ว เรียงแถวตามราย–เวลา แล้วเติมคอลัมน์เหล่านี้
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>คอลัมน์</th><th>นิยาม</th><th>ใช้ทำอะไร</th></tr></thead>
+  <tbody>
+    <tr><th><code>wait_min</code></th><td>start − arrive</td>
+      <td>W<sub>q</sub> ที่วัดได้จริง · สัดส่วนเวลารอ · ตัวตั้งของคะแนนคอขวด</td></tr>
+    <tr><th><code>service_min</code></th><td>end − start</td>
+      <td><strong>E[S] และ cs²</strong> — ต้นทางของ μ และของพจน์ V ในสมการ Kingman</td></tr>
+    <tr><th><code>in_unit_min</code></th><td>end − arrive</td>
+      <td>เวลาอยู่ในหน่วย = รอ + บริการ · เป็นค่าที่ไฟล์ให้ตรง ๆ โดยไม่ต้องประมาณ</td></tr>
+    <tr><th><code>handoff_min</code></th><td>arrive ของหน่วยถัดไป − end ของหน่วยนี้</td>
+      <td>เวลาที่หายไประหว่างหน่วย (ขนย้าย รอชุด) — เป็นส่วนของ TAT ที่ไม่มีหน่วยไหนรับผิด</td></tr>
+    <tr><th><code>seq</code></th><td>ลำดับที่เท่าไรในเส้นทางของรายนั้น</td>
+      <td>ตรวจว่าเส้นทางจริงตรงกับ <code>flows</code> ใน config หรือไม่</td></tr>
+    <tr><th><code>visit_no</code></th><td>มาหน่วยนี้เป็นครั้งที่เท่าไร</td>
+      <td><strong>อัตรางานทำซ้ำ r</strong> → ตัวคูณ 1/(1−r) ในบทที่ 6</td></tr>
+    <tr><th><code>minute_of_day</code></th><td>ชั่วโมง×60 + นาที</td>
+      <td>แบ่งช่วง 30 นาที ซึ่งเป็นหน่วยที่พารามิเตอร์ทุกตัวถูกคำนวณ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <h4>สองในสามของตารางนี้ต้องรอ start</h4>
+  <p>
+    <code>in_unit_min</code> คำนวณได้จากไฟล์ตรง ๆ
+    แต่ <code>wait_min</code> กับ <code>service_min</code> ต้องมี <code>start</code> ก่อน
+    และ <code>service_min</code> คือต้นทางของ E[S], μ, cs² ซึ่งเข้าไปอยู่ในแทบทุกสูตรของเว็บนี้
+    ถ้าขั้นที่ 4 ลำเอียงไป 18% ρ ก็ลำเอียงไป 18% และคำตอบเรื่องจำนวนโต๊ะก็ผิดตาม
+  </p>
+</div>
+
+<h2 id="start">4. เวลาเริ่มให้บริการ — ค่าที่ไม่มีในไฟล์</h2>
+
+<p>
+  ไฟล์บอกว่าคนนี้เข้าคิว 06:11:23 และเสร็จ 06:31:29 รวม 20.1 นาที
+  แต่นั่นคือ "รอ + บริการ" ไม่ใช่เวลาบริการ
+  ถ้าเอา 20.1 ไปเป็น E[S] ตรง ๆ ρ จะพุ่งไป 5 เท่า
+  วิธีแยกคือสร้างคิวย้อนกลับจากเลขโต๊ะ
+</p>
+
+<h3>วิธีที่ 1 — ไล่คิวรายโต๊ะ (วิธีหลัก)</h3>
+
+<div class="formula">
+  $$\text{start}(n) \;=\; \max\bigl(\text{arrive}(n),\; \text{end}(n-1 \text{ ที่โต๊ะเดียวกัน})\bigr)$$
+  <div class="caption">
+    โต๊ะหนึ่งทำได้คนเดียวต่อครั้ง ฉะนั้นคนถัดไปของโต๊ะนั้นจะเริ่มได้ก็เมื่อ
+    คนก่อนหน้าเสร็จ และตัวเองมาถึงแล้ว — อันไหนช้ากว่าเอาอันนั้น
+  </div>
+</div>
+
+<p>
+  ถ้าไฟล์ไม่มีเลขโต๊ะ ยังทำได้โดยไล่รวมทั้งหน่วยด้วย
+  $\text{start}(n) = \max(\text{arrive}(n), \text{end}(n-c))$ เมื่อ c คือจำนวนโต๊ะ
+  แต่จะแม่นน้อยลงชัดเจน เพราะไม่รู้ว่าใครไปโต๊ะไหน
+</p>
+
+<div class="example">
+  <header>ตัวอย่าง — โต๊ะ RE2 ของวันที่ 5 ม.ค.</header>
+  <div class="body">
+    <div class="calc">
+<span class="cm">// แถวที่ไฟล์ให้มา (เรียงตามเวลาเสร็จ)</span>
+คนที่ 1   arrive 06:05:36   end 06:32:28
+คนที่ 2   arrive 06:18:02   end 06:34:51
+
+<span class="cm">// วิธีที่ 1</span>
+start(1) = max(06:05:36, —)        = 06:05:36  <span class="cm">← ยังไม่มีคนก่อนหน้า</span>
+start(2) = max(06:18:02, 06:32:28) = 06:32:28  <span class="cm">← โต๊ะเพิ่งว่าง</span>
+
+service(2) = 06:34:51 − 06:32:28 = <span class="hl">2.38 นาที</span>
+wait(2)    = 06:32:28 − 06:18:02 = <span class="hl">14.43 นาที</span>
+
+<span class="cm">// ถ้าใช้ end − arrive ทั้งก้อน จะได้ 16.8 นาที
+//    และเข้าใจว่าเป็น "เวลาบริการ" ทั้งหมด → ρ พุ่ง 7 เท่า</span></div>
+  </div>
+</div>
+
+<h3>ข้อควรระวังที่กินเวลาผมนานที่สุด: เวลาเปิดบริการ</h3>
+
+<p>
+  คนที่ 1 ในตัวอย่างข้างบนมาถึง 06:05:36 แต่หน่วยเปิด 06:30
+  สูตรวิธีที่ 1 จะบอกว่าเขาเริ่มรับบริการ 06:05:36
+  ทำให้เวลาบริการของเขากลายเป็น 26.9 นาที แทนที่จะเป็น 2.5 นาที
+  — และเพราะคนที่มาก่อนเปิดประตูมีเยอะมาก ความลำเอียงนี้จึงไม่เล็ก
+</p>
+
+<div class="formula">
+  $$\text{start}(n) \;=\; \max\bigl(\text{arrive}(n),\; \text{end}(n-1),\; t_{\text{เปิดบริการ}}\bigr)$$
+  <div class="caption">เพิ่มเวลาเปิดบริการ (06:30) เข้าไปใน max ด้วย</div>
+</div>
+
+<p>
+  ผลของการเพิ่มพจน์เดียวนี้ วัดได้ชัดที่หน่วยลงทะเบียน
+  ซึ่งเป็นหน่วยแรกที่รับคนที่มายืนรอก่อนเปิด
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>E[S] ของหน่วยลงทะเบียน — ก่อนและหลังใส่เวลาเปิดบริการ</caption>
+  <thead><tr><th>วิธี</th><th class="num">E[S] ที่ได้</th><th class="num">cs²</th>
+    <th class="num">ค่าจริงจากเฉลย</th><th class="num">ลำเอียง</th></tr></thead>
+  <tbody>
+    <tr><th>ไม่ใส่เวลาเปิด</th><td class="num">2.847</td><td class="num">1.212</td>
+      <td class="num">2.411</td><td class="num"><strong>+18.1%</strong></td></tr>
+    <tr class="is-good"><th>ใส่เวลาเปิด 06:30</th><td class="num">2.411</td><td class="num">0.122</td>
+      <td class="num">2.411</td><td class="num"><strong>−0.01%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  ที่น่ากลัวกว่าค่าเฉลี่ยคือ cs² — จาก 1.212 เหลือ 0.122 ต่างกันสิบเท่า
+  และ cs² คือตัวที่เข้าไปอยู่ในพจน์ V ของสมการ Kingman โดยตรง
+  ถ้าใช้ค่า 1.212 สูตรจะบอกว่าหน่วยลงทะเบียนมีความผันแปรสูงและต้องเพิ่มโต๊ะ
+  ซึ่งผิด — ความผันแปรนั้นเป็นของการประมาณ ไม่ใช่ของกระบวนการ
+</p>
+
+<h3>อีกสองวิธี และเหตุที่ต้องมีสามวิธี</h3>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>วิธี</th><th>หลักการ</th><th>ใช้เมื่อ</th></tr></thead>
+  <tbody>
+    <tr><th>2. ช่วงไม่มีคิว</th>
+      <td>เลือกเฉพาะแถวที่ไม่มีใครรออยู่ข้างหน้า → end − arrive คือเวลาบริการล้วน</td>
+      <td>ตรวจทานวิธีที่ 1 ว่าไม่ลำเอียง (ต้องมีตัวอย่างในช่วงว่างอย่างน้อย 30 แถว)</td></tr>
+    <tr><th>3. อัตราออกช่วงยุ่ง</th>
+      <td>ตอนคิวยาว โต๊ะไม่เคยว่าง ระยะห่างเวลาออกของคนติดกัน ≈ 1/(cμ)</td>
+      <td>ไม่มีเลขโต๊ะ หรือสงสัยว่ามีการแทรกคิว</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  ค่าที่ใช้จริงคือ <strong>มัฐยฐาน</strong> ของสามวิธี ไม่ใช่ค่าเฉลี่ย
+  เพราะวิธีหนึ่งพลาดไม่ควรลากอีกสองวิธีไปด้วย
+  และถ้าสามวิธีต่างกันเกิน 20% ระบบ<strong>เตือน</strong>ว่าสรุปไม่ได้
+  ดีกว่ารายงานตัวเลขสวย ๆ ที่ผิด
+</p>
+
+<h3>แม่นแค่ไหน — วัดกับเฉลยของชุดข้อมูล</h3>
+
+<p>
+  ชุด <code>demo_basic</code> เป็นข้อมูลสังเคราะห์ที่แนบ <code>truth.parquet</code>
+  ซึ่งมีคอลัมน์ <code>start</code> ของจริงมาด้วย
+  ฉะนั้นวัดได้ตรง ๆ ว่าการประมาณในขั้นที่ 4 แม่นเพียงไหน
+  ทุกตัวเลขในตารางนี้คือการเทียบ 49,974 แถวที่มีเลขโต๊ะ
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>เวลาที่ประมาณได้ เทียบกับเวลาจริงใน <code>truth.parquet</code></caption>
+  <thead><tr><th>หน่วย</th><th class="num">E[S] ที่ประมาณ</th><th class="num">E[S] จริง</th>
+    <th class="num">ลำเอียง</th><th class="num">คลาดเฉลี่ย</th><th class="num">คลาด ≤ 1 นาที</th></tr></thead>
+  <tbody>
+    <tr class="is-good"><th>จุดเจาะเลือด</th><td class="num">4.1611</td><td class="num">4.1611</td>
+      <td class="num">−0.00%</td><td class="num">0.5 วินาที</td><td class="num">100%</td></tr>
+    <tr class="is-good"><th>ลงทะเบียน</th><td class="num">2.4110</td><td class="num">2.4112</td>
+      <td class="num">−0.01%</td><td class="num">0.5 วินาที</td><td class="num">100%</td></tr>
+    <tr class="is-good"><th>เครื่องเคมีคลินิก</th><td class="num">14.9451</td><td class="num">14.9453</td>
+      <td class="num">−0.00%</td><td class="num">0.5 วินาที</td><td class="num">100%</td></tr>
+    <tr class="is-good"><th>เครื่องโลหิตวิทยา</th><td class="num">8.0013</td><td class="num">8.0014</td>
+      <td class="num">−0.00%</td><td class="num">0.5 วินาที</td><td class="num">100%</td></tr>
+    <tr class="is-good"><th>ส่งผลเข้า HIS</th><td class="num">0.5985</td><td class="num">0.5985</td>
+      <td class="num">−0.00%</td><td class="num">0.5 วินาที</td><td class="num">100%</td></tr>
+    <tr><th>รับและปั่นแยก</th><td class="num">3.0463</td><td class="num">3.0110</td>
+      <td class="num">+1.17%</td><td class="num">2.6 วินาที</td><td class="num">99.2%</td></tr>
+    <tr><th>ทวนสอบและยืนยันผล</th><td class="num">2.0697</td><td class="num">1.9990</td>
+      <td class="num">+3.54%</td><td class="num">4.7 วินาที</td><td class="num">99.3%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  ห้าในเจ็ดหน่วยได้ค่าตรงถึงทศนิยมตำแหน่งที่สาม
+  ที่เหลือ 0.5 วินาทีคือผลของการบันทึกเวลาเป็นวินาทีเต็มในไฟล์ ไม่ใช่ความผิดของวิธี
+  สองหน่วยที่คลาด (+1.2% และ +3.5%) คือหน่วยที่ถือชิ้นงานไว้รอส่งต่อ
+  — เครื่องเสร็จแล้วแต่คนยังไม่มารับ เวลานั้นถูกนับเป็นเวลาบริการเกินจริง
+</p>
+
+<div class="warnbox">
+  <h4>ตัวเลขนี้แม่นเพราะมีเลขโต๊ะ ไม่ใช่เพราะวิธีเก่ง</h4>
+  <p>
+    8,329 แถวของหน่วยขนส่งไม่มีเลขโต๊ะ (เป็นงานต่อเนื่อง ไม่ใช่โต๊ะ)
+    จึงไม่มีการประมาณ start ให้ และหน่วยนั้นถูกกันออกจากทุกสูตรคิว
+    ถ้าไฟล์ของโรงพยาบาลจริงไม่มีคอลัมน์เลขโต๊ะ ความแม่นระดับนี้เป็นไปไม่ได้
+    และควรรายงานเป็นช่วง ไม่ใช่ตัวเลขเดียว
+  </p>
+</div>
+
+<h2 id="servers">5. นับโต๊ะที่เปิดจริง — ขั้นที่ไขคดีนี้</h2>
+
+<p>
+  c คือจำนวนโต๊ะในสูตร และเป็นตัวที่คนหยิบจากตารางเวรมากที่สุด
+  วิธีที่ถูกคือนับจากข้อมูล
+</p>
+
+<div class="formula">
+  $$c(b) \;=\; \operatorname{median}_{\;d \,\in\, \text{วันทั้งหมด}}
+  \Bigl|\;\bigl\{\, \text{desk\_no} \;:\; \text{มีงานเสร็จในช่วง } b \text{ ของวัน } d \,\bigr\}\;\Bigr|$$
+  <div class="caption">
+    นับจำนวนเลขโต๊ะที่ไม่ซ้ำกันซึ่งมีงานเสร็จในช่วง 30 นาทีนั้น ทำทุกวัน
+    แล้วเอามัฐยฐานข้ามวัน — มัฐยฐานกันวันที่ผิดปกติหนึ่งวันไม่ให้ลากผล
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <caption>จุดเจาะเลือด — ตารางเวรบอกเท่าไร ข้อมูลเห็นเท่าไร</caption>
+  <thead><tr><th>ช่วง</th><th class="num">c ตาม config</th><th class="num">c ที่นับได้จากข้อมูล</th>
+    <th class="num">ส่วนต่าง</th></tr></thead>
+  <tbody>
+    <tr class="is-flag"><th>06:30–07:00</th><td class="num">11</td><td class="num">7</td><td class="num">−4</td></tr>
+    <tr class="is-flag"><th>07:00–07:30</th><td class="num">11</td><td class="num">7</td><td class="num">−4</td></tr>
+    <tr class="is-flag"><th>07:30–08:00</th><td class="num">11</td><td class="num">7</td><td class="num">−4</td></tr>
+    <tr class="is-flag"><th>08:00–08:30</th><td class="num">11</td><td class="num">7</td><td class="num">−4</td></tr>
+    <tr class="is-flag"><th>08:30–09:00</th><td class="num">11</td><td class="num">7</td><td class="num">−4</td></tr>
+    <tr><th>09:00–09:30</th><td class="num">6</td><td class="num">7</td><td class="num">+1</td></tr>
+    <tr><th>09:30–10:00</th><td class="num">6</td><td class="num">6</td><td class="num">0</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  ห้าช่วงติดกัน ขาด 4 โต๊ะเท่ากันทุกช่วง นั่นไม่ใช่ความคลาดของการวัด
+  แต่คือ "ประกาศไว้ 11 เปิดจริง 7"
+  และถ้าขั้นนี้ถูกข้ามไป โดยเอา c = 11 จาก config ไปใส่สูตร
+  ρ ช่วงพีคจะได้ 0.78 ซึ่ง<strong>อยู่ในเกณฑ์ 0.85 ที่ตั้งไว้</strong>
+  — รายงานจะสรุปว่าไม่มีปัญหา ทั้งที่คิวยาว 140 คน
+</p>
+
+<div class="example">
+  <header>ความต่างของขั้นเดียวนี้ คิดเป็นตัวเลข</header>
+  <div class="body">
+    <div class="calc">
+<span class="cm">// ช่วงพีค 06:30–09:00 ของจุดเจาะเลือด</span>
+λ    = 6,159 ครั้ง ÷ (20 วัน × 150 นาที) = 2.053 ราย/นาที
+E[S] = 4.1611 นาที            <span class="cm">(จากขั้นที่ 4)</span>
+a    = λ × E[S] = 8.543 erlang <span class="cm">(ต้องมีโต๊ะทำงานเต็มเวลา 8.5 ตัว)</span>
+
+ถ้าใช้ c จาก config  = 11 →  ρ = 8.543 / 11 = <span class="hl">0.777</span>  ผ่านเกณฑ์ 0.85
+ถ้าใช้ c จากข้อมูล   =  7 →  ρ = 8.543 /  7 = <span class="hl">1.220</span>  ไม่มีสมดุล
+
+<span class="cm">// เวลารอที่วัดได้จริงในช่วงนั้น = 40.8 นาที — เข้าข้างตัวเลขที่สอง</span></div>
+  </div>
+</div>
+
+<h2 id="params">6. พารามิเตอร์ห้าตัว และสูตรประมาณของแต่ละตัว</h2>
+
+<p>
+  ทุกตัวคิดแยกราย<strong>ช่วง 30 นาที</strong> ไม่ใช่รายวัน
+  เพราะค่าเฉลี่ยทั้งวันของจุดเจาะเลือดให้ ρ = 0.44 ซึ่งดูสบาย
+  ขณะที่ช่วง 06:30 ของจริงคือ 2.15
+</p>
+
+<div class="formula">
+  $$\hat\lambda(b) = \frac{n(b)}{D \cdot \Delta}
+  \qquad
+  \widehat{E[S]} = \frac{1}{n}\sum_i s_i
+  \qquad
+  \hat\mu = \frac{1}{\widehat{E[S]}}$$
+  <div class="caption">
+    n(b) คือจำนวนครั้งที่มาถึงในช่วง b รวมทุกวัน, D = 20 วัน, Δ = 30 นาที
+    — หารด้วยจำนวนวันก่อน เพราะเราต้องการอัตราของวันเดียว ไม่ใช่ของ 20 วันรวม
+  </div>
+</div>
+
+<div class="formula">
+  $$\hat{c}_s^2 = \left(\frac{\mathrm{sd}(s)}{\overline{s}}\right)^{\!2}
+  \qquad\qquad
+  \hat{c}_a^2 = \left(\frac{\mathrm{sd}(\Delta t)}{\overline{\Delta t}}\right)^{\!2}$$
+  <div class="caption">
+    cs² จากเวลาบริการที่ตัดค่าผิดปกติออกแล้ว · ca² จากระยะห่างเวลามาถึง
+    ที่คิดเฉพาะภายในวันเดียวกัน (ข้ามคืนไม่ใช่ระยะห่างของคิว)
+  </div>
+</div>
+
+<p>
+  ca² ที่ได้บอกอะไรที่น่าสนใจ และตรงกับบทที่ 6 พอดี
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>ca² เฉลี่ยช่วง 07:00–10:00 คำนวณจากระยะห่างเวลามาถึงจริง</caption>
+  <thead><tr><th>หน่วย</th><th class="num">ca²</th><th>อ่านว่า</th></tr></thead>
+  <tbody>
+    <tr><th>ลงทะเบียน</th><td class="num">0.985</td>
+      <td>คนเดินมาจากถนน — เป็น Poisson แทบเป๊ะ (ca² = 1)</td></tr>
+    <tr><th>จุดเจาะเลือด</th><td class="num">1.023</td>
+      <td>รับจากลงทะเบียนที่ไม่ตึงมาก ความผันแปรจึงผ่านมาเกือบเท่าเดิม</td></tr>
+    <tr><th>รับและปั่นแยก</th><td class="num">0.879</td>
+      <td><strong>ต่ำกว่า 1</strong> — รับงานจากจุดเจาะเลือดที่ ρ ≈ 1
+        หน่วยที่ยุ่งตลอดจะปล่อยงานออกมาเป็นจังหวะสม่ำเสมอ
+        ตรงกับสูตร c<sub>d</sub>² ในบทที่ 6</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="lab">
+  <header>ห้องทดลอง — เดินสะพานทั้งเส้นด้วยตัวเลขจริง</header>
+  <div class="body">
+    <p style="margin-top:0">
+      เลือกหน่วยและช่วงเวลา แล้วดูทุกค่าที่ถูกดึงออกจากไฟล์ ไหลเข้าสูตร
+      และผลที่สูตรให้ เทียบกับเวลารอที่วัดได้จริงในช่วงเดียวกัน
+      ทุกตัวเลขมาจาก <code>data.xlsx</code> ไม่มีค่าที่กรอกมือ
+    </p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+      <div class="ctrl">
+        <label for="usel"><span>หน่วยบริการ</span></label>
+        <select id="usel">
+          <option value="PHLEB" selected>จุดเจาะเลือด (PHLEB)</option>
+          <option value="REG">ลงทะเบียน (REG)</option>
+          <option value="RECEIVE">รับและปั่นแยก (RECEIVE)</option>
+          <option value="CHEM">เครื่องเคมีคลินิก (CHEM)</option>
+          <option value="HEMA">เครื่องโลหิตวิทยา (HEMA)</option>
+          <option value="VERIFY">ทวนสอบและยืนยันผล (VERIFY)</option>
+          <option value="RESULT">ส่งผลเข้า HIS (RESULT)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label for="bsel"><span>ช่วงเวลา</span><span class="val" id="bselV"></span></label>
+        <input type="range" id="bsel" min="390" max="870" step="30" value="420">
+        <div class="sub">ช่วงละ 30 นาที — เลื่อนดูว่าพารามิเตอร์เปลี่ยนไปแค่ไหนในวันเดียว</div>
+      </div>
+    </div>
+
+    <div class="calc" id="chain" style="margin-top:14px"></div>
+
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+      <div class="stat"><div class="k">ρ = λE[S]/c</div><div class="v" id="sRho">—</div></div>
+      <div class="stat"><div class="k">Wq จากสูตร</div><div class="v" id="sWq">—</div></div>
+      <div class="stat"><div class="k">Wq ที่วัดได้</div><div class="v" id="sObs">—</div></div>
+      <div class="stat" id="stVer"><div class="k">สูตรใช้ได้ไหม</div><div class="v" id="sVer">—</div></div>
+    </div>
+    <p style="font-size:.88rem;color:var(--ink-faint);margin:10px 0 0" id="chainNote"></p>
+  </div>
+</div>
+
+<h2 id="rho">7. ρ สองแบบที่ไม่ใช่ตัวเดียวกัน</h2>
+
+<p>
+  นี่คือบทเรียนที่ผมคิดว่าสำคัญที่สุดของหน้านี้
+  คำว่า "การใช้กำลัง" วัดได้สองทางจากไฟล์เดียวกัน และสองทางนั้นให้คำตอบต่างกันคนละเรื่อง
+</p>
+
+<div class="formula">
+  $$\underbrace{u \;=\; \frac{\sum \text{นาทีที่โต๊ะมีงาน}}{c \cdot \Delta \cdot D}}_{\text{วัดจากของที่เกิดขึ้นแล้ว}}
+  \qquad\text{เทียบกับ}\qquad
+  \underbrace{\rho \;=\; \frac{\lambda\,E[S]}{c}}_{\text{ภาระที่ไหลเข้ามา}}$$
+  <div class="caption">
+    u คือสัดส่วนเวลาที่โต๊ะไม่ว่าง — <strong>เกิน 1 ไม่ได้</strong> ไม่ว่าคิวจะยาวแค่ไหน
+    ส่วน ρ คืออัตราส่วนงานเข้าต่อกำลังที่มี — <strong>เกิน 1 ได้</strong> และนั่นคือสัญญาณ
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <caption>จุดเจาะเลือด รายชั่วโมง — ตัวเลขทั้งสองคอลัมน์มาจากไฟล์เดียวกัน</caption>
+  <thead><tr><th>ชั่วโมง</th><th class="num">คนมา/วัน</th><th class="num">c</th>
+    <th class="num">u (วัดได้)</th><th class="num">ρ = λE[S]/c</th><th>เกิดอะไรขึ้นจริง</th></tr></thead>
+  <tbody>
+    <tr><th>06:30–07:00</th><td class="num">108.8</td><td class="num">7</td>
+      <td class="num">0.934</td><td class="num"><strong>2.155</strong></td>
+      <td>งานเข้ามาเป็นสองเท่าของกำลัง คิวเริ่มพอก</td></tr>
+    <tr class="is-flag"><th>07:00–08:00</th><td class="num">146.3</td><td class="num">7</td>
+      <td class="num"><strong>1.000</strong></td><td class="num"><strong>1.450</strong></td>
+      <td>u ชนเพดาน 1.00 แล้วซ่อนส่วนเกิน 45% ไว้ไม่ให้เห็น</td></tr>
+    <tr class="is-flag"><th>08:00–09:00</th><td class="num">52.9</td><td class="num">7</td>
+      <td class="num"><strong>1.000</strong></td><td class="num">0.524</td>
+      <td>คนมาน้อยลงครึ่ง แต่โต๊ะยังไม่ว่างเลย — กำลังตามล้างคิวที่ค้างมา</td></tr>
+    <tr><th>09:00–10:00</th><td class="num">25.3</td><td class="num">7</td>
+      <td class="num">0.756</td><td class="num">0.251</td>
+      <td>เริ่มคลาย แต่ยังไม่โปร่ง</td></tr>
+    <tr><th>10:00–11:00</th><td class="num">21.6</td><td class="num">6</td>
+      <td class="num">0.339</td><td class="num">0.250</td>
+      <td>u ≈ ρ แล้ว ระบบกลับเข้าสมดุล</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>วิธีอ่านสองคอลัมน์นี้</h4>
+  <ul>
+    <li><strong>u ใกล้ 1 ติดกันหลายช่วง</strong> = หน่วยนี้ไม่มีกำลังเหลือ
+      แต่ u อย่างเดียวบอกไม่ได้ว่าขาดเท่าไร เพราะมันตัดยอดที่ 1</li>
+    <li><strong>ρ > 1</strong> = ขาดเท่าไรบอกได้เป็นตัวเลข
+      ρ = 1.45 แปลว่าต้องเพิ่มกำลัง 45% หรือเกลี่ยงานออกไปช่วงอื่น 45%</li>
+    <li><strong>ช่องว่างระหว่าง u กับ ρ คือคิวที่กำลังสะสม</strong> —
+      ชั่วโมง 08:00 เป็นภาพกลับด้าน: ρ ตกมา 0.52 แล้วแต่ u ยังเป็น 1.00
+      เพราะงานที่ทำอยู่คือคนที่มาถึงตั้งแต่ชั่วโมงก่อน</li>
+    <li>ถ้ารายงานไหนบอกแค่ u คุณจะไม่เห็นทั้งขนาดของปัญหาและเวลาที่มันเกิด</li>
+  </ul>
+</div>
+
+<h2 id="intoformula">8. ใส่ลงสูตรแล้วเทียบของจริง</h2>
+
+<p>
+  ถึงขั้นนี้พารามิเตอร์พร้อมแล้ว ใส่ลง Sakasegawa (บทที่ 5) ทีละช่วง
+  แล้ววาง "เวลารอที่วัดได้จริง" ไว้ข้าง ๆ ผลคือบทเรียนที่ตรงไปตรงมา
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>จุดเจาะเลือด — สูตรว่าอย่างไร ข้อมูลว่าอย่างไร</caption>
+  <thead><tr><th>ช่วง</th><th class="num">λ</th><th class="num">c</th><th class="num">ca²</th>
+    <th class="num">ρ</th><th class="num">Wq จากสูตร</th><th class="num">Wq ที่วัดได้</th></tr></thead>
+  <tbody>
+    <tr class="is-flag"><th>06:30</th><td class="num">3.625</td><td class="num">7</td><td class="num">0.85</td>
+      <td class="num">2.155</td><td class="num">∞</td><td class="num">16.9</td></tr>
+    <tr class="is-flag"><th>07:00</th><td class="num">3.133</td><td class="num">7</td><td class="num">1.00</td>
+      <td class="num">1.863</td><td class="num">∞</td><td class="num">49.1</td></tr>
+    <tr class="is-flag"><th>07:30</th><td class="num">1.745</td><td class="num">7</td><td class="num">1.04</td>
+      <td class="num">1.037</td><td class="num">∞</td><td class="num">62.2</td></tr>
+    <tr class="is-flag"><th>08:00</th><td class="num">1.110</td><td class="num">7</td><td class="num">1.05</td>
+      <td class="num">0.660</td><td class="num">0.3</td><td class="num">58.7</td></tr>
+    <tr class="is-flag"><th>08:30</th><td class="num">0.652</td><td class="num">7</td><td class="num">0.96</td>
+      <td class="num">0.387</td><td class="num">0.03</td><td class="num">45.9</td></tr>
+    <tr><th>09:30</th><td class="num">0.428</td><td class="num">6</td><td class="num">1.10</td>
+      <td class="num">0.297</td><td class="num">0.02</td><td class="num">9.4</td></tr>
+    <tr class="is-good"><th>10:30</th><td class="num">0.398</td><td class="num">4</td><td class="num">0.93</td>
+      <td class="num">0.414</td><td class="num">0.15</td><td class="num">0.4</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  สูตรผิดสองทาง และผิดเพราะเหตุเดียวกัน
+</p>
+
+<div class="warnbox">
+  <h4>สูตรสถานะคงตัวไม่มีความจำ</h4>
+  <p>
+    สามช่วงแรก ρ ≥ 1 สูตรตอบ ∞ ซึ่งไม่ผิดในเชิงทฤษฎี
+    แต่ไม่มีประโยชน์ เพราะโรงพยาบาลปิดตอน 16:30 ไม่ได้เปิดถึงอนันต์
+  </p>
+  <p>
+    ช่วง 08:00–08:30 กลับด้าน: ρ = 0.66 และ 0.39 สูตรตอบ 0.3 และ 0.03 นาที
+    แต่ของจริงคือ 58.7 และ 45.9 นาที — ผิดเกือบสองร้อยเท่า
+    ไม่ใช่เพราะสูตรคำนวณพลาด แต่เพราะสูตรถามว่า
+    "ถ้าระบบอยู่ในสภาพนี้มานานจนลืมอดีตแล้ว คิวจะยาวเท่าไร"
+    ขณะที่คนที่กำลังรออยู่ตอน 08:00 คือคนที่มาถึงตั้งแต่ 07:10
+  </p>
+  <p>
+    ช่วงท้ายของวัน (10:30) ที่ระบบนิ่งจริง สูตรให้ 0.15 นาที ของจริง 0.4 นาที
+    ตรงกันในระดับที่ใช้ตัดสินใจได้ — <strong>สูตรไม่ผิด แต่มีขอบเขต</strong>
+    และวิธีรู้ขอบเขตคือเอาสูตรไปเทียบกับข้อมูลอย่างที่ทำในตารางนี้
+  </p>
+  <p style="margin-bottom:0">
+    ทางออกคือ <a href="../theory/09-nonstationary.html">fluid model และการจำลองเหตุการณ์</a>
+    ซึ่งเก็บคิวค้างข้ามช่วงเวลาได้ — และนั่นคือเหตุที่กรณีศึกษานี้
+    ยืนยันข้อเสนอด้วยการจำลอง ไม่ใช่ด้วยผลต่างของสูตร
+  </p>
+</div>
+
+<h2 id="routes">9. เส้นทางและงานทำซ้ำ — ตัวเลขที่ config ไม่ควรเดา</h2>
+
+<p>
+  สมดุลการไหลในบทที่ 6 ต้องการสัดส่วนการแยกทาง
+  ซึ่งนับได้จากข้อมูลโดยดูว่าแถวถัดไปของรายเดียวกันไปหน่วยไหน
+</p>
+
+<div class="formula">
+  $$\hat{p}_{i \to j} \;=\;
+  \frac{\#\{\text{แถวที่หน่วย } i \text{ แล้วแถวถัดไปของรายเดียวกันคือหน่วย } j\}}
+       {\#\{\text{แถวที่หน่วย } i\}}$$
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>เส้นทาง</th><th class="num">นับจากข้อมูล</th><th class="num">สัดส่วน</th>
+    <th class="num">ที่ config ประกาศ</th></tr></thead>
+  <tbody>
+    <tr><th>รับ/ปั่นแยก → เครื่องเคมี</th><td class="num">5,175</td><td class="num">0.6213</td>
+      <td class="num">0.62</td></tr>
+    <tr><th>รับ/ปั่นแยก → เครื่องโลหิต</th><td class="num">3,154</td><td class="num">0.3787</td>
+      <td class="num">0.38</td></tr>
+    <tr><th>จุดเจาะเลือด → จุดเจาะเลือด (เจาะซ้ำ)</th><td class="num">0</td><td class="num">0.0000</td>
+      <td><code>from_data</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  สองเส้นแรกตรงกับที่ config ประกาศในระดับ 0.1% — ยืนยันว่าอ่านไฟล์ถูก
+  เส้นที่สาม config ไม่ประกาศค่า แต่เขียนว่า <code>from_data</code>
+  ให้ไปนับจากข้อมูลเอง ซึ่งนับได้ 0 ครั้ง
+</p>
+
+<div class="note">
+  <h4>งานทำซ้ำเป็นศูนย์ มีความหมายสองชั้น</h4>
+  <p>
+    ชั้นแรก: ตัวคูณขยายภาระ 1/(1−r) = 1.000 ฉะนั้น λ ที่จุดเจาะเลือด
+    ไม่ต้องบวกเพิ่มจากการเจาะซ้ำเลย
+  </p>
+  <p style="margin-bottom:0">
+    ชั้นที่สอง และสำคัญกว่า: r = 0 อยู่ใต้เกณฑ์ <code>rework_threshold: 0.03</code>
+    แปลว่า <strong>ตัดสาเหตุ "คุณภาพ" ออกจากรายการผู้ต้องสงสัยได้เลย</strong>
+    คิวที่จุดเจาะเลือดไม่ได้เกิดจากการทำงานซ้ำ — เหลือสาเหตุให้สืบน้อยลงหนึ่งข้อ
+    การตัดออกแบบนี้มีค่าเท่ากับการชี้เข้า
+  </p>
+</div>
+
+<h2 id="table">10. ตารางสะพาน — พารามิเตอร์ไหน มาจากคอลัมน์ไหน เข้าสูตรไหน</h2>
+
+<p>
+  ตารางนี้คือสรุปของทั้งหน้า อ่านจากซ้ายไปขวาคือเส้นทางของตัวเลขหนึ่งตัว
+  ตั้งแต่คอลัมน์ในไฟล์ จนถึงบทที่ใช้มัน
+</p>
+
+<div class="tablewrap">
+<table>
+  <caption>ทุกพารามิเตอร์ที่สูตรในเว็บนี้ต้องการ กับที่มาของมัน</caption>
+  <thead><tr><th>พารามิเตอร์</th><th>มาจาก</th><th>วิธีคำนวณ</th>
+    <th class="num">ค่าที่จุดเจาะเลือด</th><th>ใช้ในบท</th></tr></thead>
+  <tbody>
+    <tr><th>λ</th><td><code>t_queue</code></td>
+      <td>นับแถวในช่วง 30 นาที ÷ (20 วัน × 30 นาที)</td>
+      <td class="num">2.053/นาที<br><small>พีค 06:30–09:00</small></td>
+      <td><a href="../theory/01-basics.html">1</a>, <a href="../theory/02-littles-law.html">2</a>,
+          <a href="../theory/04-mmc.html">4</a>, <a href="../theory/05-ggc.html">5</a></td></tr>
+    <tr><th>E[S]</th><td><code>t_finish</code> − start ที่ประมาณได้</td>
+      <td>ค่าเฉลี่ยตัดค่าผิดปกติ จากมัฐยฐานของ 3 วิธี</td>
+      <td class="num">4.1611 นาที</td>
+      <td>ทุกบท</td></tr>
+    <tr><th>μ</th><td>E[S]</td><td>1 ÷ E[S]</td>
+      <td class="num">0.2403/นาที/โต๊ะ</td>
+      <td><a href="../theory/04-mmc.html">4</a></td></tr>
+    <tr><th>c</th><td><code>desk_no</code></td>
+      <td>มัฐยฐานข้ามวันของจำนวนโต๊ะที่มีงานในช่วงนั้น</td>
+      <td class="num">7 โต๊ะ<br><small>config บอก 11</small></td>
+      <td><a href="../theory/04-mmc.html">4</a>, <a href="../theory/08-staffing.html">8</a></td></tr>
+    <tr><th>cs²</th><td><code>service_min</code></td>
+      <td>(sd ÷ ค่าเฉลี่ย)² ของเวลาบริการ</td>
+      <td class="num">0.2009<br><small>cv = 0.448</small></td>
+      <td><a href="../theory/03-variability.html">3</a>, <a href="../theory/05-ggc.html">5</a></td></tr>
+    <tr><th>ca²</th><td><code>t_queue</code></td>
+      <td>(sd ÷ ค่าเฉลี่ย)² ของระยะห่างเวลามาถึงภายในวัน</td>
+      <td class="num">0.85–1.05<br><small>แล้วแต่ช่วง</small></td>
+      <td><a href="../theory/03-variability.html">3</a>, <a href="../theory/05-ggc.html">5</a>,
+          <a href="../theory/06-network.html">6</a></td></tr>
+    <tr><th>ρ</th><td>λ, E[S], c</td><td>λE[S] ÷ c</td>
+      <td class="num">1.220<br><small>พีค</small></td>
+      <td>ทุกบท</td></tr>
+    <tr><th>u (วัดได้)</th><td>start, <code>t_finish</code>, <code>desk_no</code></td>
+      <td>นาทีที่โต๊ะมีงาน ÷ (c × ความยาวช่วง × วัน)</td>
+      <td class="num">1.000<br><small>07:00–09:00</small></td>
+      <td><a href="../theory/07-bottleneck.html">7</a></td></tr>
+    <tr><th>p<sub>i→j</sub></th><td>ลำดับแถวของรายเดียวกัน</td>
+      <td>สัดส่วนที่แถวถัดไปเป็นหน่วย j</td>
+      <td class="num">0.62 / 0.38<br><small>ที่รับ/ปั่นแยก</small></td>
+      <td><a href="../theory/06-network.html">6</a></td></tr>
+    <tr><th>r (ทำซ้ำ)</th><td><code>visit_no</code></td>
+      <td>สัดส่วนครั้งที่มาหน่วยเดิมซ้ำ</td>
+      <td class="num">0.0000</td>
+      <td><a href="../theory/06-network.html">6</a></td></tr>
+    <tr><th>W<sub>q</sub> ที่วัดได้</th><td>start − <code>t_queue</code></td>
+      <td>ค่าเฉลี่ยและเปอร์เซ็นไทล์ของเวลารอ</td>
+      <td class="num">31.39 นาที<br><small>p90 = 66.27</small></td>
+      <td><a href="../theory/07-bottleneck.html">7</a>, <a href="../theory/09-nonstationary.html">9</a></td></tr>
+    <tr><th>TAT</th><td><code>t_queue</code> แรก, <code>t_finish</code> สุดท้าย ของแต่ละราย</td>
+      <td>ผลต่างต่อราย แล้วหาค่าเฉลี่ย/เปอร์เซ็นไทล์</td>
+      <td class="num">65.90 นาที<br><small>p90 = 96.75</small></td>
+      <td><a href="../theory/02-littles-law.html">2</a>, <a href="flowlens.html">กรณีศึกษา</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  คอลัมน์ "ค่าที่จุดเจาะเลือด" ทั้งคอลัมน์คำนวณขึ้นใหม่จาก <code>data.xlsx</code>
+  โดยไม่อ่าน <code>answer_key.json</code> เลย แล้วจึงนำไปเทียบ
+  — TAT 65.90 / 71.97 / 96.75, เวลารอ 31.385, cv บริการ 0.4482
+  ตรงกับเฉลยทุกตัว ซึ่งเป็นการตรวจว่าสะพานทั้งเส้นต่อกันถูก
+</p>
+
+<h2 id="limits">11. ที่สะพานนี้รับน้ำหนักไม่ได้</h2>
+
+<p>
+  รายงานที่บอกแต่ว่าอะไรใช้ได้ ไม่ช่วยให้ใครตัดสินใจได้ดีขึ้น
+  นี่คือข้อจำกัดที่วัดได้จากงานข้างบน
+</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>ข้อจำกัด</th><th>ผลที่เกิด</th><th>ทำอะไรได้</th></tr></thead>
+  <tbody>
+    <tr><th>ไม่มีคอลัมน์เลขโต๊ะ</th>
+      <td>ทั้งการประมาณ start และการนับ c แย่ลงมาก ขั้นที่ 5 ทำไม่ได้เลย</td>
+      <td>ขอให้ระบบ HIS บันทึกเพิ่ม — เป็นข้อเดียวที่คุ้มที่สุดในรายการนี้</td></tr>
+    <tr><th>หน่วยที่ถือชิ้นงานรอส่งต่อ</th>
+      <td>E[S] เกินจริง +1.2% (รับ/ปั่นแยก) ถึง +3.5% (ทวนสอบผล)</td>
+      <td>ใช้ <code>handoff_min</code> แยกเวลารอส่งต่อออกจากเวลาบริการ</td></tr>
+    <tr><th>บันทึกเวลาเป็นวินาทีเต็ม</th>
+      <td>คลาด 0.5 วินาทีทุกแถว และ ca² ของหน่วยที่คนมาถี่จะเพี้ยนถ้าไม่ระวัง</td>
+      <td>ยอมรับได้สำหรับ E[S] · สำหรับ ca² ต้องคิดระยะห่างเป็นวินาทีจริง ไม่ปัดเป็นนาที</td></tr>
+    <tr><th>หน่วยงานต่อเนื่อง (ขนส่ง)</th>
+      <td>ไม่มีโต๊ะ ไม่มีคิว สูตรคิวใช้ไม่ได้ — 8,329 แถวถูกกันออก</td>
+      <td>คิดเป็นเวลาหน่วง (delay) คงที่ในแบบจำลอง ไม่ใช่สถานีคิว</td></tr>
+    <tr><th>ช่วงที่ ρ ≥ 1</th>
+      <td>สูตรสถานะคงตัวให้ ∞ และช่วงถัดมาให้ค่าต่ำกว่าจริงเกือบ 200 เท่า</td>
+      <td>ใช้ <a href="../theory/09-nonstationary.html">fluid model / DES</a> ในช่วงพีค
+        ใช้สูตรในช่วงที่ระบบนิ่ง</td></tr>
+    <tr><th>ข้อมูล 20 วัน</th>
+      <td>แยกวันจันทร์/อังคาร–พฤหัส/ศุกร์ได้ แต่ฤดูกาลหรือเทศกาลไม่พอ</td>
+      <td>รายงานเป็นช่วงความเชื่อมั่น และอย่าสรุปข้ามฤดู</td></tr>
+    <tr><th>เป็นข้อมูลสังเคราะห์</th>
+      <td>สะอาดกว่าของจริง ไม่มีแถวซ้ำ ไม่มีเวลาติดลบ ไม่มีชื่อหน่วยพิมพ์ผิด</td>
+      <td>ขั้นที่ 1 ของงานจริงจะหนักกว่านี้มาก และต้องมีคะแนนคุณภาพข้อมูลกำกับ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="takeaway">
+  <h4>สิ่งที่หน้านี้พยายามบอก</h4>
+  <ul>
+    <li><strong>สูตรไม่ใช่ส่วนที่ยาก</strong> — Sakasegawa เขียนได้ในสิบบรรทัด
+      แต่การได้ λ, E[S], cv², c ที่เชื่อถือได้จากไฟล์ที่โรงพยาบาลมีอยู่จริง
+      คืองานที่กินเวลาเกือบทั้งโครงการ</li>
+    <li><strong>ค่าที่ไฟล์ไม่มี ต้องประมาณ และต้องรายงานว่าประมาณ</strong> —
+      พร้อมความแม่นที่วัดได้ ไม่ใช่เอาค่าประมาณไปวางปนกับค่าที่วัดได้จริง</li>
+    <li><strong>อย่าหยิบ c จากตารางเวร</strong> — ในเคสนี้ความต่างระหว่าง 11 กับ 7
+      คือความต่างระหว่าง "ไม่มีปัญหา" กับ "ไม่มีสมดุล"</li>
+    <li><strong>u กับ ρ ไม่ใช่ตัวเดียวกัน</strong> — u ตัดยอดที่ 1 และซ่อนขนาดของปัญหา
+      ส่วน ρ บอกขนาดได้ แต่ต้องมี c ที่ถูก</li>
+    <li><strong>เอาสูตรไปเทียบกับข้อมูลเสมอ</strong> — ไม่ใช่เพื่อพิสูจน์ว่าสูตรถูก
+      แต่เพื่อรู้ว่าสูตรหมดสภาพที่ช่วงเวลาไหน</li>
+  </ul>
+</div>
+
+</main>
+</div>
+
+<footer class="site"><div class="in"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="../assets/js/queue.js"></script>
+<script src="../assets/js/charts.js"></script>
+<script src="../assets/js/glossary.js"></script>
+<script src="../assets/js/site.js"></script>
+<script>
+/* ============================================================
+   ตัวเลขทุกตัวในบล็อกนี้คำนวณจาก samples/demo_basic/data.xlsx
+   (58,303 แถว · 20 วัน) ด้วยขั้นตอนที่หน้านี้อธิบายไว้
+   lam = λ ราย/นาที · c = โต๊ะที่นับได้ · a = ca² · w = เวลารอที่วัดได้
+   ============================================================ */
+(function () {
+  'use strict';
+  var EST = {
+    REG: { name: 'ลงทะเบียน', ES: 2.411, cs2: 0.1224, EStrue: 2.4112, bias: -0.01, errabs: 0.008, within1: 100.0, n: 8329, waitMean: 3.951, waitP90: 14.0,
+      bins: { 390:{l:2.8133,c:9,a:1.032,w:7.58,n:84.4},420:{l:2.4883,c:9,a:1.127,w:1.77,n:74.65},450:{l:1.6517,c:9,a:1.01,w:0.02,n:49.55},480:{l:1.075,c:7,a:1.056,w:0.0,n:32.25},510:{l:0.63,c:5,a:0.877,w:0.0,n:18.9},540:{l:0.4083,c:4,a:0.96,w:0.01,n:12.25},570:{l:0.43,c:4,a:0.879,w:0.01,n:12.9},600:{l:0.3117,c:3,a:1.089,w:0.01,n:9.35},630:{l:0.41,c:4,a:0.952,w:0.03,n:12.3},660:{l:0.385,c:3,a:0.768,w:0.01,n:11.55},690:{l:0.38,c:3,a:1.17,w:0.0,n:11.4},720:{l:0.39,c:4,a:1.276,w:0.01,n:11.7},750:{l:0.31,c:3,a:1.066,w:0.01,n:9.3},780:{l:0.2283,c:2,a:0.697,w:0.0,n:6.85},810:{l:0.185,c:2,a:0.847,w:0.01,n:5.55},840:{l:0.0917,c:1,a:0.674,w:0.0,n:2.75},870:{l:0.0417,c:1,a:0.316,w:0.0,n:1.25} } },
+    PHLEB: { name: 'จุดเจาะเลือด', ES: 4.1611, cs2: 0.2009, EStrue: 4.1611, bias: 0.0, errabs: 0.008, within1: 100.0, n: 8329, waitMean: 31.385, waitP90: 66.267,
+      bins: { 390:{l:3.625,c:7,a:0.848,w:16.87,n:108.75},420:{l:3.1333,c:7,a:1.002,w:49.1,n:94.0},450:{l:1.745,c:7,a:1.039,w:62.23,n:52.35},480:{l:1.11,c:7,a:1.054,w:58.65,n:33.3},510:{l:0.6517,c:7,a:0.964,w:45.88,n:19.55},540:{l:0.415,c:7,a:0.984,w:29.35,n:12.45},570:{l:0.4283,c:6,a:1.099,w:9.37,n:12.85},600:{l:0.3233,c:6,a:1.055,w:2.13,n:9.7},630:{l:0.3983,c:4,a:0.93,w:0.43,n:11.95},660:{l:0.4067,c:4,a:0.83,w:0.0,n:12.2},690:{l:0.3633,c:4,a:0.968,w:0.0,n:10.9},720:{l:0.3817,c:4,a:1.314,w:0.02,n:11.45},750:{l:0.325,c:4,a:0.952,w:0.0,n:9.75},780:{l:0.2483,c:3,a:0.737,w:0.0,n:7.45},810:{l:0.1783,c:2,a:0.824,w:0.0,n:5.35},840:{l:0.0983,c:2,a:0.846,w:0.0,n:2.95},870:{l:0.05,c:1,a:1.012,w:0.0,n:1.5} } },
+    RECEIVE: { name: 'รับและปั่นแยก', ES: 3.0463, cs2: 0.1772, EStrue: 3.011, bias: 1.17, errabs: 0.044, within1: 99.2, n: 8329, waitMean: 0.29, waitP90: 0.667,
+      bins: { 390:{l:1.2533,c:4,a:0.809,w:2.31,n:37.6},420:{l:1.75,c:8,a:0.772,w:0.31,n:52.5},450:{l:1.665,c:8,a:0.797,w:0.02,n:49.95},480:{l:1.64,c:8,a:0.807,w:0.02,n:49.2},510:{l:1.6667,c:8,a:0.807,w:0.01,n:50.0},540:{l:1.5017,c:8,a:0.786,w:0.01,n:45.05},570:{l:1.2067,c:8,a:1.308,w:0.01,n:36.2},600:{l:0.6117,c:4,a:1.378,w:0.55,n:18.35},630:{l:0.4233,c:4,a:1.197,w:0.18,n:12.7},660:{l:0.4083,c:4,a:1.219,w:0.07,n:12.25},690:{l:0.3583,c:4,a:1.032,w:0.0,n:10.75},720:{l:0.3933,c:3,a:0.865,w:0.02,n:11.8},750:{l:0.365,c:4,a:1.12,w:0.03,n:10.95},780:{l:0.2467,c:3,a:0.803,w:0.01,n:7.4},810:{l:0.1817,c:2,a:0.872,w:0.02,n:5.45},840:{l:0.1433,c:2,a:0.757,w:0.0,n:4.3},870:{l:0.0583,c:1,a:0.201,w:0.0,n:1.75} } },
+    CHEM: { name: 'เครื่องเคมีคลินิก', ES: 14.9451, cs2: 0.061, EStrue: 14.9453, bias: 0.0, errabs: 0.008, within1: 100.0, n: 5175, waitMean: 0.082, waitP90: 0.0,
+      bins: { 390:{l:0.55,c:4,a:0.609,w:0.0,n:16.5},420:{l:1.2417,c:20,a:0.88,w:0.42,n:37.25},450:{l:1.0067,c:20,a:0.911,w:0.08,n:30.2},480:{l:0.995,c:18,a:1.035,w:0.02,n:29.85},510:{l:1.055,c:18,a:0.875,w:0.05,n:31.65},540:{l:0.925,c:19,a:0.907,w:0.01,n:27.75},570:{l:0.78,c:14,a:1.197,w:0.03,n:23.4},600:{l:0.3917,c:14,a:1.187,w:0.0,n:11.75},630:{l:0.2633,c:5,a:0.956,w:0.0,n:7.9},660:{l:0.235,c:6,a:0.995,w:0.0,n:7.05},690:{l:0.2617,c:6,a:1.043,w:0.0,n:7.85},720:{l:0.2517,c:5,a:0.667,w:0.0,n:7.55},750:{l:0.2267,c:5,a:0.89,w:0.0,n:6.8},780:{l:0.1533,c:4,a:1.066,w:0.0,n:4.6},810:{l:0.1367,c:3,a:0.947,w:0.0,n:4.1},840:{l:0.0967,c:3,a:0.849,w:0.0,n:2.9},870:{l:0.0467,c:2,a:0.796,w:0.0,n:1.4} } },
+    HEMA: { name: 'เครื่องโลหิตวิทยา', ES: 8.0013, cs2: 0.0891, EStrue: 8.0014, bias: 0.0, errabs: 0.008, within1: 100.0, n: 3154, waitMean: 0.409, waitP90: 1.633,
+      bins: { 390:{l:0.315,c:4,a:0.598,w:0.01,n:9.45},420:{l:0.7167,c:7,a:1.094,w:0.83,n:21.5},450:{l:0.665,c:7,a:0.834,w:0.63,n:19.95},480:{l:0.6517,c:7,a:0.898,w:0.87,n:19.55},510:{l:0.59,c:7,a:0.871,w:0.42,n:17.7},540:{l:0.6033,c:7,a:0.794,w:0.31,n:18.1},570:{l:0.49,c:7,a:1.37,w:0.27,n:14.7},600:{l:0.285,c:6,a:1.204,w:0.02,n:8.55},630:{l:0.1467,c:2,a:0.784,w:0.0,n:4.4},660:{l:0.1667,c:2,a:0.983,w:0.0,n:5.0},690:{l:0.1183,c:2,a:0.902,w:0.0,n:3.55},720:{l:0.1317,c:2,a:1.05,w:0.0,n:3.95},750:{l:0.15,c:3,a:0.798,w:0.0,n:4.5},780:{l:0.0867,c:2,a:0.54,w:0.0,n:2.6},810:{l:0.0717,c:1,a:1.328,w:0.0,n:2.15},840:{l:0.0467,c:2,a:0.702,w:0.0,n:1.4},870:{l:0.0183,c:1,a:1.0,w:0.0,n:0.55} } },
+    VERIFY: { name: 'ทวนสอบและยืนยันผล', ES: 2.0697, cs2: 0.4021, EStrue: 1.999, bias: 3.54, errabs: 0.079, within1: 99.3, n: 8329, waitMean: 1.409, waitP90: 6.2,
+      bins: { 390:{l:0.3067,c:3,a:1.123,w:0.28,n:9.2},420:{l:1.7333,c:3,a:0.945,w:2.76,n:52.0},450:{l:1.7467,c:3,a:0.959,w:7.3,n:52.4},480:{l:1.6867,c:6,a:0.958,w:1.03,n:50.6},510:{l:1.615,c:6,a:0.874,w:0.03,n:48.45},540:{l:1.64,c:6,a:0.918,w:0.05,n:49.2},570:{l:1.3433,c:6,a:1.028,w:0.02,n:40.3},600:{l:0.9933,c:6,a:1.496,w:0.01,n:29.8},630:{l:0.41,c:3,a:1.259,w:0.0,n:12.3},660:{l:0.445,c:3,a:1.078,w:0.0,n:13.35},690:{l:0.3767,c:3,a:0.805,w:0.0,n:11.3},720:{l:0.3833,c:3,a:0.828,w:0.01,n:11.5},750:{l:0.4117,c:3,a:1.138,w:0.04,n:12.35},780:{l:0.2717,c:2,a:0.868,w:0.01,n:8.15},810:{l:0.2233,c:2,a:0.87,w:0.0,n:6.7},840:{l:0.18,c:2,a:0.642,w:0.0,n:5.4},870:{l:0.0833,c:1,a:0.817,w:0.0,n:2.5} } },
+    RESULT: { name: 'ส่งผลเข้า HIS', ES: 0.5985, cs2: 0.0908, EStrue: 0.5985, bias: 0.0, errabs: 0.008, within1: 100.0, n: 8329, waitMean: 0.07, waitP90: 0.283,
+      bins: { 390:{l:0.2117,c:2,a:0.719,w:0.0,n:6.35},420:{l:1.4267,c:2,a:0.592,w:0.02,n:42.8},450:{l:1.4967,c:2,a:0.536,w:0.02,n:44.9},480:{l:2.2183,c:2,a:0.979,w:0.23,n:66.55},510:{l:1.6367,c:2,a:0.881,w:0.08,n:49.1},540:{l:1.6233,c:2,a:1.007,w:0.08,n:48.7},570:{l:1.39,c:2,a:1.026,w:0.07,n:41.7},600:{l:1.0217,c:2,a:1.416,w:0.04,n:30.65},630:{l:0.42,c:2,a:1.428,w:0.01,n:12.6},660:{l:0.46,c:2,a:1.012,w:0.01,n:13.8},690:{l:0.375,c:2,a:0.945,w:0.0,n:11.25},720:{l:0.3717,c:2,a:0.758,w:0.0,n:11.15},750:{l:0.405,c:2,a:1.164,w:0.0,n:12.15},780:{l:0.2967,c:2,a:0.897,w:0.0,n:8.9},810:{l:0.215,c:2,a:0.913,w:0.0,n:6.45},840:{l:0.1867,c:1,a:0.77,w:0.0,n:5.6},870:{l:0.0933,c:1,a:0.765,w:0.0,n:2.8} } },
+  };
+
+  function set(id, t) {
+    var e = document.getElementById(id);
+    if (e) e.textContent = t;
+  }
+  function clock(m) {
+    var h = Math.floor(m / 60), mm = m % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm;
+  }
+  function nearestBin(u, b) {
+    var keys = Object.keys(EST[u].bins).map(Number).sort(function (x, y) { return x - y; });
+    var best = keys[0];
+    keys.forEach(function (k) { if (Math.abs(k - b) < Math.abs(best - b)) best = k; });
+    return best;
+  }
+
+  function render() {
+    var u = document.getElementById('usel').value;
+    var want = Site.v('bsel');
+    var e = EST[u];
+    var b = nearestBin(u, want);
+    var d = e.bins[b];
+    Site.show('bsel', clock(b) + '–' + clock(b + 30));
+
+    var rho = d.l * e.ES / d.c;
+    var wq = Q.wqGGc(d.l, e.ES, d.c, d.a, e.cs2);
+    var ok = Number.isFinite(wq);
+    /* เทียบได้เมื่อสูตรให้ค่าจำกัด และผลต่างไม่เกิน 2 นาที หรือ 25% */
+    var close = ok && (Math.abs(wq - d.w) <= 2 || Math.abs(wq - d.w) <= 0.25 * Math.max(d.w, 0.01));
+
+    var L = [];
+    L.push('<span class="cm">// ขั้นที่ 1–3 — ดึงจากไฟล์ (' + e.n.toLocaleString() + ' แถวของหน่วยนี้)</span>');
+    L.push('คนมาถึงช่วงนี้   = ' + d.n.toFixed(2) + ' ราย/วัน  <span class="cm">(รวม 20 วัน หารด้วย 20)</span>');
+    L.push('');
+    L.push('<span class="cm">// ขั้นที่ 4 — ประมาณเวลาเริ่มให้บริการ แล้ววัดกับเฉลย</span>');
+    L.push('E[S]            = ' + e.ES.toFixed(4) + ' นาที   <span class="cm">(ค่าจริง ' + e.EStrue.toFixed(4) +
+           ' → ลำเอียง ' + (e.bias >= 0 ? '+' : '') + e.bias.toFixed(2) + '%)</span>');
+    L.push('cs&sup2;             = ' + e.cs2.toFixed(4) + '      <span class="cm">(cv = ' + Math.sqrt(e.cs2).toFixed(3) + ')</span>');
+    L.push('');
+    L.push('<span class="cm">// ขั้นที่ 5 — นับโต๊ะที่เปิดจริงในช่วงนี้</span>');
+    L.push('c               = ' + d.c + ' โต๊ะ');
+    L.push('');
+    L.push('<span class="cm">// ขั้นที่ 6 — พารามิเตอร์ของช่วง ' + clock(b) + '–' + clock(b + 30) + '</span>');
+    L.push('&lambda;               = ' + d.l.toFixed(4) + ' ราย/นาที');
+    L.push('ca&sup2;             = ' + d.a.toFixed(3));
+    L.push('a = &lambda;E[S]        = ' + (d.l * e.ES).toFixed(3) + ' erlang');
+    L.push('&rho; = a/c           = <span class="hl">' + rho.toFixed(4) + '</span>' +
+           (rho >= 1 ? '  <span class="cm">← ไม่มีสมดุล</span>' : ''));
+    L.push('');
+    L.push('<span class="cm">// ขั้นที่ 7 — ใส่ลง Sakasegawa (บทที่ 5)</span>');
+    L.push('Wq (สูตร)       = ' + (ok ? wq.toFixed(2) + ' นาที' : '&infin;  <span class="cm">← &rho; &ge; 1 ไม่มีสถานะคงตัว</span>'));
+    L.push('Wq (วัดได้)      = <span class="hl">' + d.w.toFixed(2) + ' นาที</span>');
+    document.getElementById('chain').innerHTML = L.join('\n');
+
+    set('sRho', rho.toFixed(3));
+    set('sWq', ok ? wq.toFixed(2) : '∞');
+    set('sObs', d.w.toFixed(2));
+    var verdict = !ok ? 'ไม่ได้' : close ? 'ใช้ได้' : (wq < d.w ? 'ต่ำกว่าจริง' : 'สูงกว่าจริง');
+    set('sVer', verdict);
+    var st = document.getElementById('stVer');
+    st.className = 'stat' + (close && ok ? ' is-ok' : ' is-bad');
+
+    var note;
+    if (!ok) {
+      note = 'ช่วงนี้งานที่ไหลเข้ามามากกว่ากำลังที่มี (ρ = ' + rho.toFixed(2) + ') ' +
+        'สูตรสถานะคงตัวจึงตอบ ∞ ขณะที่ของจริงรอ ' + d.w.toFixed(1) + ' นาที ' +
+        'เพราะวันทำงานมีแค่ 10 ชั่วโมง ไม่ใช่อนันต์ — ช่วงแบบนี้ต้องใช้ fluid model หรือการจำลอง';
+    } else if (close) {
+      note = 'ช่วงนี้ระบบค่อนข้างนิ่ง สูตรให้ ' + wq.toFixed(2) + ' นาที ของจริง ' + d.w.toFixed(2) +
+        ' นาที ตรงกันในระดับที่ใช้ตัดสินใจได้ — นี่คือขอบเขตที่สูตรทำงานได้ดี';
+    } else if (wq < d.w) {
+      note = 'สูตรให้ ' + wq.toFixed(2) + ' นาที แต่ของจริง ' + d.w.toFixed(2) + ' นาที ' +
+        'ทั้งที่ ρ = ' + rho.toFixed(2) + ' ซึ่งดูสบาย — ส่วนต่างนี้คือคิวที่ค้างมาจากช่วงก่อนหน้า ' +
+        'สูตรสถานะคงตัวไม่มีความจำ จึงมองไม่เห็นมัน';
+    } else {
+      note = 'สูตรให้ ' + wq.toFixed(2) + ' นาที ซึ่งสูงกว่าของจริง ' + d.w.toFixed(2) + ' นาที — ' +
+        'ช่วงนี้จำนวนเครื่อง/โต๊ะที่ทำงานเปลี่ยนภายในช่วง 30 นาที และงานเข้ามาเป็นชุด ' +
+        'สูตรที่สมมติว่า c คงที่และงานมาทีละราย จึงประมาณคิวไว้สูงเกินจริง';
+    }
+    set('chainNote', note);
+  }
+
+  Site.bind(['usel', 'bsel'], render);
+})();
+</script>
+</body>
+</html>
