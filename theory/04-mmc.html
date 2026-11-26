@@ -317,7 +317,7 @@ Wq(G/G/1) = 25.2 นาที   →   Wq(G/G/8) = <span class="hl">2.5 นาท
   <thead><tr><th>สมมติฐานของ M/M/c</th><th>ความจริงในกรณีศึกษา</th><th>ผลต่อคำตอบ</th></tr></thead>
   <tbody>
     <tr><th>เวลาบริการเป็น exponential (cs² = 1)</th>
-      <td>lognormal, cs² = 0.06–0.25</td>
+      <td>lognormal, cs² = 0.06–0.40 (วัดได้ทั้ง 7 หน่วย)</td>
       <td class="num"><span class="pill bad">สูงเกินจริงมาก</span></td></tr>
     <tr><th>คนมาแบบ Poisson (ca² = 1)</th>
       <td>มาเป็นกลุ่มตอนเช้า ca² อาจ &gt; 1</td>
@@ -332,6 +332,58 @@ Wq(G/G/1) = 25.2 นาที   →   Wq(G/G/8) = <span class="hl">2.5 นาท
       <td class="num"><span class="pill ok">ใช้ได้</span></td></tr>
   </tbody>
 </table>
+</div>
+
+<div class="example">
+  <header>cs² ที่วัดได้จริง — ไม่มีหน่วยไหนใกล้ 1 เลยสักหน่วย</header>
+  <div class="body">
+    <p style="margin-top:0">
+      แถวแรกของตารางข้างบนเป็นสมมติฐานที่ขาดมากที่สุดในกรณีศึกษานี้
+      เพราะ cs² คำนวณจากข้อมูลได้ทุกหน่วย และไม่มีหน่วยไหนเข้าใกล้ 1
+    </p>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>หน่วย</th><th class="num">cs² ที่วัดได้</th>
+        <th class="num">M/M/c สมมติ</th><th>ทำไมจึงต่ำ</th></tr></thead>
+      <tbody>
+        <tr><th>เครื่องเคมีคลินิก</th><td class="num">0.061</td><td class="num">1.00</td>
+          <td>เครื่องอัตโนมัติ รอบการทำงานเกือบคงที่</td></tr>
+        <tr><th>เครื่องโลหิตวิทยา</th><td class="num">0.089</td><td class="num">1.00</td>
+          <td>เครื่องอัตโนมัติเช่นกัน</td></tr>
+        <tr><th>ส่งผลเข้า HIS</th><td class="num">0.091</td><td class="num">1.00</td>
+          <td>งานกดปุ่ม ใช้เวลาใกล้เคียงกันทุกครั้ง</td></tr>
+        <tr><th>ลงทะเบียน</th><td class="num">0.122</td><td class="num">1.00</td>
+          <td>ขั้นตอนเป็นมาตรฐาน</td></tr>
+        <tr><th>รับและปั่นแยก</th><td class="num">0.177</td><td class="num">1.00</td>
+          <td>รอบปั่นแยกคงที่</td></tr>
+        <tr><th>จุดเจาะเลือด</th><td class="num">0.201</td><td class="num">1.00</td>
+          <td>คนทำ จึงผันแปรกว่าเครื่อง แต่ยังห่างจาก 1 มาก</td></tr>
+        <tr><th>ทวนสอบและยืนยันผล</th><td class="num">0.402</td><td class="num">1.00</td>
+          <td>สูงสุดในระบบ — เคสยากปนเคสง่าย ต้องใช้วิจารณญาณ</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>
+      ผลของการสมมติ cs² = 1 วัดได้ตรง ๆ ที่เครื่องโลหิตวิทยา
+      ซึ่งเป็นช่วงที่ระบบนิ่งพอให้ทั้งสองสูตรใช้ได้
+    </p>
+    <div class="calc">
+<span class="cm">// เครื่องโลหิตวิทยา ช่วง 08:00–08:30</span>
+λ = 0.652 ราย/นาที   E[S] = 8.00   c = 7   &rho; = 0.745
+ca&sup2; = 0.898 (วัดได้)   cs&sup2; = 0.089 (วัดได้)
+
+M/M/c  (Erlang-C, บังคับ cs&sup2; = 1) → Wq = <span class="hl">1.69 นาที</span>
+G/G/c  (Sakasegawa, ใช้ค่าจริง)    → Wq = <span class="hl">0.91 นาที</span>
+เวลารอที่วัดได้จากข้อมูล            → Wq = <span class="hl">0.87 นาที</span></div>
+    <p style="margin-bottom:0">
+      Erlang-C ให้ค่า<strong>เกือบสองเท่า</strong>ของความจริง ขณะที่ G/G/c
+      คลาดจากของจริงราว 5% ความต่างเกือบทั้งหมดมาจากพจน์ (ca² + cs²)/2
+      ซึ่งเท่ากับ 0.49 ไม่ใช่ 1.00 — ถ้าเอาตัวเลข Erlang-C ไปวางแผนกำลังคน
+      จะเผื่อเครื่องและคนไว้มากเกินจำเป็น
+      ที่มาของ cs² และ ca² ทุกค่าอยู่ที่
+      <a href="../case/data-to-formula.html">จากไฟล์ข้อมูล ถึงตัวเลขในสูตร</a>
+    </p>
+  </div>
 </div>
 
 <p>
